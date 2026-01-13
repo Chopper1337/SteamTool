@@ -36,7 +36,7 @@ const CONFIG = [
     url_vanity: "https://wsteamcommunity.com/{path}",
     url_64: "https://wsteamcommunity.com/{path}",
     needs64: false,
-    favicon: "https://t.nuke.ie/JlnUrl_aWNvUA.ico",
+    favicon: "https://raw.githubusercontent.com/Chopper1337/SteamTool/refs/heads/main/resources/csrep.ico",
     open: "new",
   },
   {
