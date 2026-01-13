@@ -23,16 +23,6 @@ body {
   color: #e6eef8
 }
 
-.nav {
-  /* display: flex; */
-}
-
-.nav .btn {
-  margin: 2px;
-  min-width: 40px;
-  min-height: 40px;
-}
-
 .wrap {
   min-height: 100vh;
   display: flex;

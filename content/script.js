@@ -141,34 +141,6 @@ const pathInput = document.getElementById("pathInput");
 const statusArea = document.getElementById("statusArea");
 const targetsList = document.getElementById("targetsList");
 
-function submitPath() {
-  const val = pathInput.value.trim();
-  if (!val) { return; }
-  let path = val;
-  try {
-    const u = new URL(val);
-    path = u.pathname;
-  } catch (e) {
-    // not a full URL, use as-is
-    path = val;
-  }
-  // normalize path
-  path = path.replace(/^\/+|\/+$/g, "");
-  if (!path) {
-    logLine("Please enter a valid profile path.", "error");
-    return;
-  }
-
-  const steamid64Regex = /\/(\d{17})\/?(?:[?#].*)?$/;
-  const newPath = steamid64Regex.test(path) ? `/profiles/${path}` : `/id/${path}`;
-
-  const newUrl = "https://steamcommunityyy.com" + newPath;
-  history.replaceState(null, '', newUrl);
-
-  pathInput.value = newPath;
-  location.reload();
-}
-
 async function init() {
 
   try {
