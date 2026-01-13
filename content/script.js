@@ -165,7 +165,7 @@ function submitPath() {
   const newUrl = "https://steamcommunityyy.com" + newPath;
   history.replaceState(null, '', newUrl);
 
-  pathInput.value = newPath;
+  pathInput.value = fid;
   console.log('URL updated to', newUrl, ' - found id: ', fid);
   location.reload();
 }
@@ -192,14 +192,11 @@ async function init() {
     return;
   }
 
-  pathInput.value = "/" + parsed.raw;
-  //openSteamLink.href = `https://steamcommunity.com/${parsed.raw}`;
-  //openSteamLink.target = '_blank';
+  pathInput.value = parsed.target;
 
   let steamid64 = null;
 
   if (parsed.kind.toLowerCase() === "id") {
-    //statusArea.textContent = 'Attempting to resolve vanity ID to steamid64...';
     logLine("Attempting to resolve vanity ID to steamid64...", "muted");
     try {
       // call your server-side resolver
