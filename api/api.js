@@ -9,6 +9,8 @@ const app = express();
 const PORT = process.env.PORT;
 const HOST = process.env.HOST;
 
+const visitorCountPath = path.join(__dirname, "visitor_count.txt");
+
 const resolversPath = path.join(__dirname, "resolvers.json");
 const RESOLVERS = JSON.parse(fs.readFileSync(resolversPath, "utf-8"));
 
@@ -45,6 +47,41 @@ function logSteamTool(purpose, info, result) {
   const now = new Date().toISOString().replace("T", " ");
   console.log(`${now} ${purpose} request for ${info}${result}`);
 }
+
+// Function to log the day and current visitor count for the day
+function logVisitor() {
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  let count = 0;
+
+  // Read existing count
+  if (fs.existsSync(visitorCountPath)) {
+    const data = fs.readFileSync(visitorCountPath, "utf-8");
+    const [date, cnt] = data.split(",");
+    if (date === today) {
+      count = parseInt(cnt, 10) || 0;
+    }
+  }
+
+  // Increment count
+  count += 1;
+
+  // Write back updated count
+  fs.writeFileSync(visitorCountPath, `${today},${count}`, "utf-8");
+
+  return count;
+}
+
+// GET /api/visitor-count
+app.get("/api/visitor-count", (req, res) => {
+  try {
+    const count = logVisitor();
+    return res.json({ date: new Date().toISOString().slice(0, 10), count });
+  } catch (err) {
+    console.error("visitor count error:", err);
+    return res.status(500).json({ error: "internal_server_error" });
+  }
+});
+
 
 // GET /api/leetify?id={steamid64}
 app.get("/api/leetify", async (req, res) => {

@@ -141,6 +141,16 @@ const targetsList = document.getElementById("targetsList");
 //const openSteamLink = document.getElementById('openSteam');
 
 async function init() {
+
+  try {
+    const resp = await fetch('/api/visitor-count', {
+      method: 'POST',
+      credentials: 'same-origin',
+    });
+  } catch (err) {
+    console.error('Failed to update visitor count:', err);
+  }
+
   const parsed = parsePath();
   if (!parsed) {
     pathInput.value = window.location.href;
