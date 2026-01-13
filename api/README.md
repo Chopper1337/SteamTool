@@ -44,7 +44,7 @@ This API provides two endpoints for resolving Steam IDs and fetching profile dat
     "vanityUrl": null,
     "platformBans": []
     }
-}
+  }
   ```
 - Error: Invalid ID
   ```json
