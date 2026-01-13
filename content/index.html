@@ -25,7 +25,10 @@
       <div class="row">
         <div class="box" id="infoBox">
           <div class="muted label">Profile</div>
-          <input id="pathInput" class="input" readonly />
+          <div class="nav">
+            <input id="pathInput" class="input"/>
+            <button onclick="submitPath()" class="btn small" id="submit">Go</button>
+          </div>
           <div class="muted label">Log</div>
           <div class="note" id="statusArea"></div>
         </div>

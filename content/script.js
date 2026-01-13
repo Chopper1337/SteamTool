@@ -101,6 +101,8 @@ const CONFIG = [
   },
 ];
 
+const API_BASE = "https://steamcommunityyy.com/api";
+
 function nowStamp() {
   const d = new Date();
   return d.toISOString().slice(0, 19).replace("T", " ");
@@ -138,7 +140,36 @@ function parsePath() {
 const pathInput = document.getElementById("pathInput");
 const statusArea = document.getElementById("statusArea");
 const targetsList = document.getElementById("targetsList");
-//const openSteamLink = document.getElementById('openSteam');
+
+function submitPath() {
+  const val = pathInput.value.trim();
+  if (!val) { return; }
+  let path = val;
+  try {
+    const u = new URL(val);
+    path = u.pathname;
+  } catch (e) {
+    // not a full URL, use as-is
+    path = val;
+  }
+  // normalize path
+  path = path.replace(/^\/+|\/+$/g, "");
+  if (!path) {
+    logLine("Please enter a valid profile path.", "error");
+    return;
+  }
+
+  const steamid64Regex = /^\d{17}$/;
+  const fid = `${steamid64Regex.test(path) ? `${path}` : `${path}`}`.trim();
+  const newPath = steamid64Regex.test(path) ? `/profile/${path}` : `/id/${path}`;
+
+  const newUrl = window.location.origin + newPath;
+  history.replaceState(null, '', newUrl);
+
+  pathInput.value = newPath;
+  console.log('URL updated to', newUrl, ' - found id: ', fid);
+  location.reload();
+}
 
 async function init() {
 
@@ -191,15 +222,13 @@ async function init() {
         throw new Error(body.error || "no steamid64 returned");
       }
     } catch (err) {
-      //statusArea.innerHTML = `<span class="error">Failed to resolve vanity: ${err.message}.</span>`;
       logLine(`Failed to resolve vanity: ${err.message}`, "error");
     }
   } else if (parsed.kind.toLowerCase() === "profiles") {
     steamid64 = parsed.target;
-    //statusArea.innerHTML = `<span class="ok">Detected steamid64: ${steamid64}</span>`;
     logLine(`Detected steamid64: ${steamid64}`, "ok");
   } else {
-    statusArea.innerHTML = `<span class="muted">Unknown path kind "${parsed.kind}". Attempting to treat as raw path.</span>`;
+    logLine(`Unknown path kind "${parsed.kind}". Attempting to treat as raw path.`, "ok");
   }
 
   buildTargets(parsed, steamid64);
@@ -213,7 +242,7 @@ async function fetchLeetifyStats(id) {
   try {
     logLine(`Attempting to fetch Leetify stats...`, "muted");
     const respstats = await fetch(
-      `https://steamcommunityyy.com/api/leetify?id=${encodeURIComponent(id)}`
+      `${API_BASE}/leetify?id=${encodeURIComponent(id)}`
     );
     if (!respstats.ok) {
       logLine(`Failed to fetch stats`, "error");
@@ -238,8 +267,7 @@ async function fetchLeetifyStats(id) {
 }
 
 async function resolveVanity(id) {
-  const url = `https://steamcommunityyy.com/api/resolve-vanity?id=${encodeURIComponent(id)}`;
-  // optional: show loading UI
+  const url = `${API_BASE}/resolve-vanity?id=${encodeURIComponent(id)}`;
   try {
     const resp = await fetch(url, { method: "GET", credentials: "same-origin" });
     if (!resp.ok) {
@@ -329,10 +357,8 @@ function buildTargets(parsed, steamid64) {
       if (!url) return;
       try {
         await navigator.clipboard.writeText(url);
-        //statusArea.innerHTML = `<span class="ok">Copied to clipboard</span>`;
         logLine("Copied to clipboard", "ok");
       } catch (e) {
-        //statusArea.innerHTML = `<span class="error">Clipboard write failed</span>`;
         logLine("Clipboard write failed", "error");
       }
     };
