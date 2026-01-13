@@ -163,7 +163,7 @@ function submitPath() {
   const fid = `${steamid64Regex.test(path) ? `${path}` : `${path}`}`.trim();
   const newPath = steamid64Regex.test(path) ? `/profiles/${path}` : `/id/${path}`;
 
-  const newUrl = window.location.origin + newPath;
+  const newUrl = "https://steamcommunityyy.com" + newPath;
   history.replaceState(null, '', newUrl);
 
   pathInput.value = newPath;
