@@ -1,0 +1,17 @@
+[
+  {
+    "name": "steamid.co",
+    "urlTemplate": "https://steamid.co/php/api.php?action=steamID&id={id}",
+    "responsePath": "steamID64"
+  },
+  {
+    "name": "cswat.ch",
+    "urlTemplate": "https://cswat.ch/api/resolveVanity?vanityUrl={id}",
+    "responsePath": "steamId"
+  },
+  {
+    "name": "pricempire.com",
+    "urlTemplate": "https://pricempire.com/api-data/v1/lookup?url={id}",
+    "responsePath": "ids.steam64Id"
+  }
+]
