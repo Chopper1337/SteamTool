@@ -161,7 +161,7 @@ function submitPath() {
 
   const steamid64Regex = /^\d{17}$/;
   const fid = `${steamid64Regex.test(path) ? `${path}` : `${path}`}`.trim();
-  const newPath = steamid64Regex.test(path) ? `/profile/${path}` : `/id/${path}`;
+  const newPath = steamid64Regex.test(path) ? `/profiles/${path}` : `/id/${path}`;
 
   const newUrl = window.location.origin + newPath;
   history.replaceState(null, '', newUrl);
