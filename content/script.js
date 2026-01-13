@@ -144,7 +144,7 @@ async function init() {
 
   try {
     const resp = await fetch('/api/visitor-count', {
-      method: 'POST',
+      method: 'GET',
       credentials: 'same-origin',
     });
   } catch (err) {
