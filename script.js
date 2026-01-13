@@ -1,0 +1,368 @@
+const CONFIG = [
+  {
+    id: "steam",
+    title: "View profile",
+    desc: "Open original Steam profile",
+    url_vanity: "https://steamcommunity.com/{path}",
+    url_64: "https://steamcommunity.com/{path}",
+    needs64: false,
+    favicon: "https://steamcommunity.com/favicon.ico",
+    open: "new",
+  },
+  {
+    id: "csstat",
+    title: "CSSt.at",
+    desc: "Stats from Steam, FACEIT, Leetify, csstats.gg.<br>Highlights from AllStar.<br>Inventory viewer.",
+    url_vanity: "https://steamcommunity.rip/{path}",
+    url_64: "https://steamcommunity.rip/{path}",
+    needs64: false,
+    favicon: "",
+    open: "new",
+  },
+  {
+    id: "catstats",
+    title: "catstats.gg",
+    desc: "Stats from Steam, FACEIT and Leetify.",
+    url_vanity: null,
+    url_64: "https://catstats.gg/player/{steamid64}",
+    needs64: false,
+    favicon: "https://catstats.gg/favicon.ico",
+    open: "new",
+  },
+  {
+    id: "csrep",
+    title: "CSRep.gg",
+    desc: "Leetify stats, AllStar highlights and community reputation.<br>Inventory viewer.",
+    url_vanity: "https://wsteamcommunity.com/{path}",
+    url_64: "https://wsteamcommunity.com/{path}",
+    needs64: false,
+    favicon: "https://t.nuke.ie/JlnUrl_aWNvUA.ico",
+    open: "new",
+  },
+  {
+    id: "steamsets",
+    title: "SteamSets.com",
+    desc: "Detailed level and game statistics for the profile.",
+    url_vanity: "https://ssteamcommunity.com/{path}",
+    url_64: "https://ssteamcommunity.com/{path}",
+    needs64: false,
+    favicon: "https://steamsets.com/favicon.ico",
+    open: "new",
+  },
+  {
+    id: "steamhist",
+    title: "SteamHistory.net",
+    desc: "History of profile name, profile picture etc.",
+    url_vanity: null,
+    url_64: "https://steamhistory.net/id/{steamid64}",
+    needs64: true,
+    favicon: "https://steamhistory.net/favicon-32x32.png",
+    open: "new",
+  },
+  {
+    id: "steamiduk",
+    title: "SteamID.uk",
+    desc: "History of profile, ban stats and more.",
+    url_vanity: null,
+    url_64: "https://steamid.uk/profile/{steamid64}",
+    needs64: true,
+    favicon: "https://cdn.steamid.uk/images/favicon/android-icon-192x192.png",
+    open: "new",
+  },
+  {
+    id: "steamdb",
+    title: "SteamDB.info",
+    desc: "Value of profile, game and badge stats and more.",
+    url_vanity: null,
+    url_64: "https://steamdb.info/calculator/{steamid64}",
+    needs64: true,
+    favicon: "https://steamdb.info/static/logos/vector_prefers_schema.svg",
+    open: "new",
+  },
+  {
+    id: "csxp",
+    title: "CSXP.gg",
+    desc: "Leaderboards for medals, coins, pins, commends and more.",
+    url_vanity: null,
+    url_64: "https://csxp.gg/players/{steamid64}",
+    needs64: true,
+    favicon: "https://csxp.gg/favicon.svg",
+    open: "new",
+  },
+  {
+    id: "cswatch",
+    title: "CSWat.ch",
+    desc: 'Leetify frontend with estimated "Skill Rating".',
+    url_vanity: "https://steamcommunity.ch/{path}",
+    url_64: "https://steamcommunity.ch/{path}",
+    needs64: false,
+    favicon: "https://cswat.ch/favicon.ico",
+    open: "new",
+  },
+];
+
+function nowStamp() {
+  const d = new Date();
+  return d.toISOString().slice(0, 19).replace("T", " ");
+}
+
+function logLine(text, cls) {
+  const el = document.getElementById("statusArea");
+  const span = document.createElement("div");
+  span.className = "logText";
+  span.textContent = `[${nowStamp()}] ${text}`;
+  console.log(`${span.textContent}`);
+  if (cls) span.className = span.className + " " + cls;
+  el.appendChild(span);
+  // keep last 200 lines max
+  while (el.children.length > 200) el.removeChild(el.firstChild);
+  // scroll to bottom
+  el.scrollTop = el.scrollHeight;
+}
+
+function clearLog() {
+  const el = document.getElementById("statusArea");
+  el.innerHTML = "";
+}
+
+function parsePath() {
+  const p = window.location.pathname.replace(/^\/+|\/+$/g, "");
+  if (!p) return null;
+  const parts = p.split("/");
+  if (parts.length < 2) return null;
+  const kind = parts[0];
+  const rest = parts.slice(1).join("/");
+  return { raw: p, kind, target: rest };
+}
+
+const pathInput = document.getElementById("pathInput");
+const statusArea = document.getElementById("statusArea");
+const targetsList = document.getElementById("targetsList");
+//const openSteamLink = document.getElementById('openSteam');
+
+async function init() {
+  const parsed = parsePath();
+  if (!parsed) {
+    pathInput.value = window.location.href;
+    logLine(
+      "No profile path found. Use /id/<vanity> or /profiles/<steamid64> in the URL.",
+      "muted"
+    );
+    buildTargets(null, null);
+    return;
+  }
+
+  pathInput.value = "/" + parsed.raw;
+  //openSteamLink.href = `https://steamcommunity.com/${parsed.raw}`;
+  //openSteamLink.target = '_blank';
+
+  let steamid64 = null;
+
+  if (parsed.kind.toLowerCase() === "id") {
+    //statusArea.textContent = 'Attempting to resolve vanity ID to steamid64...';
+    logLine("Attempting to resolve vanity ID to steamid64...", "muted");
+    try {
+      // call your server-side resolver
+      const vanity = parsed.target.replace(/^\/+|\/+$/g, ""); // e.g. "valor-cant"
+      const resp = await fetch(`/api/resolve-vanity?id=${encodeURIComponent(vanity)}`, {
+        method: "GET",
+        credentials: "same-origin",
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: resp.statusText }));
+        throw new Error(err.error || err.message || `HTTP ${resp.status}`);
+      }
+      const body = await resp.json();
+      if (body && body.steamid64) {
+        steamid64 = body.steamid64;
+        logLine(`Resolved to steamid64: ${steamid64} (via ${body.source || "resolver"})`, "ok");
+      } else {
+        throw new Error(body.error || "no steamid64 returned");
+      }
+    } catch (err) {
+      //statusArea.innerHTML = `<span class="error">Failed to resolve vanity: ${err.message}.</span>`;
+      logLine(`Failed to resolve vanity: ${err.message}`, "error");
+    }
+  } else if (parsed.kind.toLowerCase() === "profiles") {
+    steamid64 = parsed.target;
+    //statusArea.innerHTML = `<span class="ok">Detected steamid64: ${steamid64}</span>`;
+    logLine(`Detected steamid64: ${steamid64}`, "ok");
+  } else {
+    statusArea.innerHTML = `<span class="muted">Unknown path kind "${parsed.kind}". Attempting to treat as raw path.</span>`;
+  }
+
+  buildTargets(parsed, steamid64);
+  fetchLeetifyStats(steamid64);
+}
+
+async function fetchLeetifyStats(id) {
+  if (!id) {
+    return;
+  }
+  try {
+    logLine(`Attempting to fetch Leetify stats...`, "muted");
+    const respstats = await fetch(
+      `https://steamcommunityyy.com/api/leetify?id=${encodeURIComponent(id)}`
+    );
+    if (!respstats.ok) {
+      logLine(`Failed to fetch stats`, "error");
+      logLine(`Response status was not OK`, "muted");
+      return;
+    }
+    const a = await respstats.json();
+    if (!a) {
+      logLine("Failed to fetch Leetify stats", "error");
+      logLine(`Could not parse response as JSON`, "muted");
+      return;
+    } else {
+      logLine("Fetched Leetify stats:", "ok");
+      logLine(`Aim: ${a.recentGameRatings.aim.toFixed(2)}`, "muted");
+      logLine(`Positioning: ${a.recentGameRatings.positioning.toFixed(2)}`, "muted");
+      logLine(`Util: ${a.recentGameRatings.utility.toFixed(2)}`, "muted");
+    }
+  } catch (e) {
+    logLine("Failed to fetch Leetify stats", "error");
+    logLine(`${e}`, "muted");
+  }
+}
+
+async function resolveVanity(id) {
+  const url = `https://steamcommunityyy.com/api/resolve-vanity?id=${encodeURIComponent(id)}`;
+  // optional: show loading UI
+  try {
+    const resp = await fetch(url, { method: "GET", credentials: "same-origin" });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ error: resp.statusText }));
+      throw new Error(err.error || err.message || `HTTP ${resp.status}`);
+    }
+    const body = await resp.json();
+    if (body.steamid64) return body;
+    throw new Error(body.error || "No steamid64 in response");
+  } catch (e) {
+    // handle error (show to user / fallback)
+    console.error("Resolve failed", e);
+    throw e;
+  }
+}
+
+function buildTargets(parsed, steamid64) {
+  targetsList.innerHTML = "";
+  CONFIG.forEach((t) => {
+    const el = document.createElement("div");
+    el.className = "target";
+    const left = document.createElement("div");
+    left.className = "t-left";
+    const icon = document.createElement("div");
+    icon.className = "t-icon";
+
+    // create image for favicon
+    if (t.favicon) {
+      const img = document.createElement("img");
+      img.alt = t.title;
+      img.src = t.favicon;
+      img.style.width = "24px";
+      img.style.height = "24px";
+      img.style.objectFit = "contain";
+      img.style.borderRadius = "4px";
+      // fallback to initials if favicon fails
+      img.onerror = () => {
+        if (img && img.parentNode) img.parentNode.removeChild(img);
+        icon.textContent = t.title
+          .split(/\s/)
+          .map((s) => s[0])
+          .slice(0, 2)
+          .join("")
+          .toUpperCase();
+      };
+      icon.appendChild(img);
+    } else {
+      icon.textContent = t.title
+        .split(/\s/)
+        .map((s) => s[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase();
+    }
+
+    const info = document.createElement("div");
+    const title = document.createElement("div");
+    title.className = "t-title";
+    title.textContent = t.title;
+    const desc = document.createElement("div");
+    desc.className = "t-desc";
+    //desc.textContent = t.desc;
+    desc.innerHTML = t.desc;
+    info.appendChild(title);
+    info.appendChild(desc);
+    left.appendChild(icon);
+    left.appendChild(info);
+
+    const actions = document.createElement("div");
+    actions.className = "t-actions";
+
+    const openBtn = document.createElement("button");
+    openBtn.className = "btn small";
+    openBtn.textContent = "Open";
+    openBtn.onclick = () => {
+      const url = buildUrl(t, parsed, steamid64);
+      if (!url) return;
+      if (t.open === "same") window.location.href = url;
+      else window.open(url, "_blank", "noopener");
+    };
+
+    const copyBtn = document.createElement("button");
+    copyBtn.className = "btn ghost small";
+    copyBtn.textContent = "Copy URL";
+    copyBtn.onclick = async () => {
+      const url = buildUrl(t, parsed, steamid64);
+      if (!url) return;
+      try {
+        await navigator.clipboard.writeText(url);
+        //statusArea.innerHTML = `<span class="ok">Copied to clipboard</span>`;
+        logLine("Copied to clipboard", "ok");
+      } catch (e) {
+        //statusArea.innerHTML = `<span class="error">Clipboard write failed</span>`;
+        logLine("Clipboard write failed", "error");
+      }
+    };
+
+    actions.appendChild(openBtn);
+    actions.appendChild(copyBtn);
+
+    let disabled = false;
+    if (!parsed) disabled = true;
+    if (t.needs64 && !steamid64) disabled = true;
+    if (disabled) {
+      openBtn.disabled = true;
+      copyBtn.disabled = true;
+      openBtn.className = openBtn.className + " " + "disabled";
+      copyBtn.className = copyBtn.className + " " + "disabled";
+      openBtn.style.opacity = "0.45";
+      copyBtn.style.opacity = "0.45";
+      desc.textContent += " â€” unavailable";
+    }
+
+    el.appendChild(left);
+    el.appendChild(actions);
+    targetsList.appendChild(el);
+  });
+}
+
+function buildUrl(t, parsed, steamid64) {
+  if (!parsed) return null;
+  if (t.needs64) {
+    if (!steamid64) return null;
+    return t.url_64.replace("{steamid64}", encodeURIComponent(steamid64));
+  } else {
+    // use parsed.raw so "/id/vanity" or "/profiles/steamid64" is preserved
+    const raw = parsed.raw; // e.g. "id/valor-cant" or "profiles/123..."
+    const segments = raw.split("/").map((s) => encodeURIComponent(s));
+    const safePath = segments.join("/");
+    return (t.url_vanity || t.url_64)
+      .replace("{path}", safePath)
+      .replace("{steamid64}", encodeURIComponent(steamid64 || ""));
+  }
+}
+
+init();
