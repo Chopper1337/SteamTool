@@ -12,7 +12,7 @@ const CONFIG = [
   {
     id: "csstat",
     title: "CSSt.at",
-    desc: "Stats from Steam, FACEIT, Leetify, csstats.gg.<br>Highlights from AllStar.<br>Inventory viewer.",
+    desc: "Stats from Steam, FACEIT, Leetify and CSStats.gg.<br>Highlights from AllStar.<br>Inventory viewer.",
     url_vanity: "https://steamcommunity.rip/{path}",
     url_64: "https://steamcommunity.rip/{path}",
     needs64: false,
@@ -42,7 +42,7 @@ const CONFIG = [
   {
     id: "steamsets",
     title: "SteamSets.com",
-    desc: "Detailed level and game statistics for the profile.",
+    desc: "Detailed level and game statistics.",
     url_vanity: "https://ssteamcommunity.com/{path}",
     url_64: "https://ssteamcommunity.com/{path}",
     needs64: false,
