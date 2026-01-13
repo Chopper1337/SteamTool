@@ -165,8 +165,7 @@ function submitPath() {
   const newUrl = "https://steamcommunityyy.com" + newPath;
   history.replaceState(null, '', newUrl);
 
-  pathInput.value = fid;
-  console.log('URL updated to', newUrl, ' - found id: ', fid);
+  pathInput.value = newPath;
   location.reload();
 }
 
