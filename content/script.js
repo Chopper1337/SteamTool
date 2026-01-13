@@ -159,8 +159,7 @@ function submitPath() {
     return;
   }
 
-  const steamid64Regex = /^\d{17}$/;
-  const fid = `${steamid64Regex.test(path) ? `${path}` : `${path}`}`.trim();
+  const steamid64Regex = /\/(\d{17})\/?(?:[?#].*)?$/;
   const newPath = steamid64Regex.test(path) ? `/profiles/${path}` : `/id/${path}`;
 
   const newUrl = "https://steamcommunityyy.com" + newPath;
