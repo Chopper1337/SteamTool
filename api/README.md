@@ -128,6 +128,36 @@ This API provides two endpoints for resolving Steam IDs and fetching profile dat
 
 ---
 
+### 4. `/api/visitor-count` (GET)
+
+**Purpose**: Fetch the visitor count for the current day.
+
+**Response Examples**:
+- Success:
+  ```json
+  {
+  "date": "2026-01-14",
+  "count": 6
+  }
+  ```
+
+---
+
+### 4. `/api/visitor-count` (POST)
+
+**Purpose**: Increment the visitor count for the current day.
+
+**Response Examples**:
+- Success:
+  ```json
+  {
+  "date": "2026-01-14",
+  "count": 6
+  }
+  ```
+
+---
+
 ## Configuration
 - **Environment Variables**:
   - `PORT`: Server port (default: `process.env.PORT`).

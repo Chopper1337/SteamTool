@@ -158,7 +158,7 @@ app.get("/api/leetify", async (req, res) => {
   }
 });
 
-// resolve vanity url to steamid64 trying multiple resolvers
+// GET /api/resolve-vanity?id={vanity}
 app.get("/api/resolve-vanity", async (req, res) => {
   const rawId = (req.query.id || "").toString();
   if (!rawId) return res.status(400).json({ error: "missing id query parameter" });
