@@ -148,6 +148,7 @@ async function getVisitorCount() {
     const a = await resp.json();
     if (!a) { return; }
     console.log(resp.body);
+  }
   catch (err){
     console.error('Failed to get visitor count:', err);
   }
