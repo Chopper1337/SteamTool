@@ -48,36 +48,75 @@ function logSteamTool(purpose, info, result) {
   console.log(`${now} ${purpose} request for ${info}${result}`);
 }
 
-// Function to log the day and current visitor count for the day
-function logVisitor() {
-  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  let count = 0;
+// Ensure file exists
+if (!fs.existsSync(visitorCountPath)) fs.writeFileSync(visitorCountPath, "", "utf-8");
 
-  // Read existing count
-  if (fs.existsSync(visitorCountPath)) {
-    const data = fs.readFileSync(visitorCountPath, "utf-8");
-    const [date, cnt] = data.split(",");
-    if (date === today) {
-      count = parseInt(cnt, 10) || 0;
+function readAllCounts() {
+  if (!fs.existsSync(visitorCountPath)) return [];
+  const raw = fs.readFileSync(visitorCountPath, "utf8");
+  if (!raw) return [];
+  return raw
+    .trim()
+    .split("\n")
+    .map(line => {
+      const [date, cnt] = line.split(",").map(s => s.trim());
+      return [date, Number.isNaN(Number(cnt)) ? 0 : Number(cnt)];
+    });
+}
+
+function writeAllCounts(rows) {
+  const out = rows.map(r => `${r[0]},${r[1]}`).join("\n");
+  fs.writeFileSync(visitorCountPath, out, "utf8");
+}
+
+function logVisitor() {
+  const today = new Date().toISOString().slice(0, 10);
+  const rows = readAllCounts();
+  let updated = false;
+
+  // iterate from bottom to find today's row
+  for (let i = rows.length - 1; i >= 0; i--) {
+    if (rows[i][0] === today) {
+      rows[i][1] = rows[i][1] + 1;
+      updated = true;
+      break;
     }
   }
 
-  // Increment count
-  count += 1;
+  if (!updated) {
+    rows.push([today, 1]);
+  }
 
-  // Write back updated count
-  fs.writeFileSync(visitorCountPath, `${today},${count}`, "utf-8");
+  writeAllCounts(rows);
 
-  return count;
+  // return today's count
+  const todays = rows.find(r => r[0] === today);
+  return todays ? todays[1] : 0;
 }
 
-// GET /api/visitor-count
+// GET /api/visitor-count -> return last line (most recent date & count) without incrementing
 app.get("/api/visitor-count", (req, res) => {
   try {
-    const count = logVisitor();
-    return res.json({ date: new Date().toISOString().slice(0, 10), count });
+    const rows = readAllCounts();
+    if (rows.length === 0) {
+      return res.json({ date: null, count: 0 });
+    }
+    const last = rows[rows.length - 1];
+    return res.json({ date: last[0], count: last[1] });
   } catch (err) {
-    console.error("visitor count error:", err);
+    console.error("visitor count GET error:", err);
+    return res.status(500).json({ error: "internal_server_error" });
+  }
+});
+
+// POST /api/visitor-count -> increment today's count and return updated
+app.post("/api/visitor-count", (req, res) => {
+  try {
+    const count = logVisitor();
+    const today = new Date().toISOString().slice(0, 10);
+    return res.json({ date: today, count });
+  } catch (err) {
+    console.error("visitor count POST error:", err);
     return res.status(500).json({ error: "internal_server_error" });
   }
 });

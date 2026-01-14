@@ -141,11 +141,23 @@ const pathInput = document.getElementById("pathInput");
 const statusArea = document.getElementById("statusArea");
 const targetsList = document.getElementById("targetsList");
 
+async function getVisitorCount() {
+  try {
+    const resp = await fetch('/api/visitor-count', { method: 'GET', credentials: 'same-origin', })
+    if (!resp.ok) { return; }
+    const a = await resp.json();
+    if (!a) { return; }
+    console.log(resp.body);
+  catch (err){
+    console.error('Failed to get visitor count:', err);
+  }
+}
+
 async function init() {
 
   try {
     const resp = await fetch('/api/visitor-count', {
-      method: 'GET',
+      method: 'POST',
       credentials: 'same-origin',
     });
   } catch (err) {
