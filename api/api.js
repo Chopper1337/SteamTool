@@ -14,6 +14,9 @@ const visitorCountPath = path.join(__dirname, "visitor_count.txt");
 const resolversPath = path.join(__dirname, "resolvers.json");
 const RESOLVERS = JSON.parse(fs.readFileSync(resolversPath, "utf-8"));
 
+const knownPath = path.join(__dirname, "known.json");
+const KNOWN = JSON.parse(fs.readFileSync(knownPath, "utf-8"));
+
 // Middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -93,6 +96,30 @@ function logVisitor() {
   const todays = rows.find(r => r[0] === today);
   return todays ? todays[1] : 0;
 }
+
+// GET /api/known -> return information for a known player
+app.get('/api/known', (req, res) => {
+  const rawId = (req.query.id || "").toString();
+  if (!rawId) return res.status(400).json({ error: "missing id query parameter" });
+
+  // Normalize: remove slashes and whitespace
+  const normalized = rawId.replace(/^\/+|\/+$/g, "").trim();
+  if (!normalized) return res.status(400).json({ error: "invalid id" });
+
+  // Validate: must be 17 digits
+  if (!/^\d{17}$/.test(normalized)) {
+    return res.status(400).json({ error: "invalid id: must be 17 digits" });
+  }
+
+  // Search for the ID in the `ids` array (now stored as strings)
+  const found = KNOWN.find(item => item.ids.includes(normalized));
+
+  if (found) {
+    res.json(found);
+  } else {
+    res.status(404).json({ error: 'Not found' });
+  }
+});
 
 // GET /api/visitor-count -> return last line (most recent date & count) without incrementing
 app.get("/api/visitor-count", (req, res) => {

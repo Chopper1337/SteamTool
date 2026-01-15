@@ -223,6 +223,7 @@ async function init() {
 
   buildTargets(parsed, steamid64);
   fetchLeetifyStats(steamid64);
+  fetchKnownPlayerInfo(steamid64);
 }
 
 async function fetchLeetifyStats(id) {
@@ -256,10 +257,43 @@ async function fetchLeetifyStats(id) {
   }
 }
 
-async function resolveVanity(id) {
-  const url = `${API_BASE}/resolve-vanity?id=${encodeURIComponent(id)}`;
+async function fetchKnownPlayerInfo(id) {
+  if (!id) { return; }
+
   try {
-    const resp = await fetch(url, { method: "GET", credentials: "same-origin" });
+    logLine(`Checking if player is known...`, "muted");
+    const resp = await fetch(
+      `${API_BASE}/known?id=${encodeURIComponent(id)}`
+    );
+    if (!resp.ok) {
+      logLine(`Failed to check player`, "error");
+      logLine(`Response status was not OK`, "muted");
+      return;
+    }
+    const a = await resp.json();
+    if (!a) {
+      logLine("Failed to check player", "error");
+      logLine(`Could not parse response as JSON`, "muted");
+      return;
+    } else {
+      logLine("Found known player", "ok");
+      logLine(`Name: ${a.name}`, "muted");
+      for (const link in a.links) {
+        if (object.hasOwnProperty(link)) {
+          const element = object[link];
+          logLine(link, 'muted');
+        }
+      }
+    }
+  } catch (e) {
+    logLine("Failed to fetch player info", "error");
+    logLine(`${e}`, "muted");
+  }
+}
+
+async function resolveVanity(id) {
+  try {
+    const resp = await fetch(`${API_BASE}/resolve-vanity?id=${encodeURIComponent(id)}`, { method: "GET", credentials: "same-origin" });
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({ error: resp.statusText }));
       throw new Error(err.error || err.message || `HTTP ${resp.status}`);
