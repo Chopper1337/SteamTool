@@ -272,6 +272,7 @@ async function fetchKnownPlayerInfo(id) {
     for (const i of a.info) {
       logLine(`${i}`, 'muted');
     }
+    if (!a.links || a.links.length == 0 ) { return; }
     logLine(`Links:`, "muted");
     for (const l of a.links) {
       logLine(`${l}`, 'muted');
