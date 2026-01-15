@@ -15,8 +15,13 @@
     "responsePath": "ids.steam64Id"
   },
   {
-    "name": "csgrind",
+    "name": "csgrind.com",
     "urlTemplate": "https://csgrind.com/steam64?vanity={id}",
     "responsePath": "steam64"
+  },
+  {
+    "name": "faceitlookup.com",
+    "urlTemplate": "https://faceitlookup.com/.netlify/functions/steam?vanityurl={id}",
+    "responsePath": "response.steamid"
   }
 ]
