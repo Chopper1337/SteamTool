@@ -13,5 +13,10 @@
     "name": "pricempire.com",
     "urlTemplate": "https://pricempire.com/api-data/v1/lookup?url={id}",
     "responsePath": "ids.steam64Id"
+  },
+  {
+    "name": "csgrind",
+    "urlTemplate": "https://csgrind.com/steam64?vanity={id}",
+    "responsePath": "steam64"
   }
 ]
