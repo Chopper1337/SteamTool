@@ -20,6 +20,16 @@ const CONFIG = [
     open: "new",
   },
   {
+    id: "CSStats.gg",
+    title: "csstats.gg",
+    desc: "CS stats, HLTV rating and FACEIT.",
+    url_vanity: null,
+    url_64: "https://csstats.gg/player/{steamid64}",
+    needs64: true,
+    favicon: "https://static.csstats.gg/images/favicon.svg",
+    open: "new",
+  },
+  {
     id: "catstats",
     title: "catstats.gg",
     desc: "Stats from Steam, FACEIT and Leetify.",
