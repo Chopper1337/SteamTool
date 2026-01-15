@@ -90,6 +90,16 @@ const CONFIG = [
     open: "new",
   },
   {
+    id: "csgrind",
+    title: "CSGrind.com",
+    desc: 'Leetify and FACEIT stats. Risk factor. ',
+    url_vanity: "https://osteamcommunity.com/{path}",
+    url_64: "https://osteamcommunity.com/{path}",
+    needs64: false,
+    favicon: "https://csgrind.com/browsericon.jpeg",
+    open: "new",
+  },
+  {
     id: "cswatch",
     title: "CSWat.ch",
     desc: 'Leetify frontend with estimated "Skill Rating".',
