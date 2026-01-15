@@ -261,19 +261,16 @@ async function fetchKnownPlayerInfo(id) {
   if (!id) { return; }
 
   try {
-    logLine(`Checking if player is known...`, "muted");
     const resp = await fetch(
       `${API_BASE}/known?id=${encodeURIComponent(id)}`
     );
     if (!resp.ok) { return; }
     const a = await resp.json();
     if (!a) { return; }
-    else {
-      logLine("Found known player", "ok");
-      logLine(`Name: ${a.name}`, "muted");
-      for (const link of a.links) {
-        logLine(`Link: ${link}`, 'muted');
-      }
+    logLine("Found known player", "ok");
+    logLine(`Name: ${a.name}`, "muted");
+    for (const link of a.links) {
+      logLine(`Link: ${link}`, 'muted');
     }
   } catch (e) {
     console.log(`Failed to check if player ${id} was known: ${e}`)
