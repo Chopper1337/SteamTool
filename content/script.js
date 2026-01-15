@@ -278,8 +278,8 @@ async function fetchKnownPlayerInfo(id) {
     } else {
       logLine("Found known player", "ok");
       logLine(`Name: ${a.name}`, "muted");
-      for (const link in a.links) {
-          logLine(link, 'muted');
+      for (const link of a.links) {
+        logLine(`Link: ${link}`, 'muted');
       }
     }
   } catch (e) {
