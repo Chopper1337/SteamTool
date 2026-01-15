@@ -269,8 +269,12 @@ async function fetchKnownPlayerInfo(id) {
     if (!a) { return; }
     logLine("Found known player", "ok");
     logLine(`Name: ${a.name}`, "muted");
-    for (const link of a.links) {
-      logLine(`Link: ${link}`, 'muted');
+    for (const i of a.info) {
+      logLine(`${i}`, 'muted');
+    }
+    logLine(`Links:`, "muted");
+    for (const l of a.links) {
+      logLine(`${l}`, 'muted');
     }
   } catch (e) {
     console.log(`Failed to check if player ${id} was known: ${e}`)
