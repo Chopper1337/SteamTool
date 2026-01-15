@@ -133,8 +133,8 @@ app.get("/api/leetify", async (req, res) => {
     }
 
     // Only allow ASCII letters and digits
-    if(!/^.{1,17}$/.test(steamid64)) { 
-      return res.status(400).json({ error: "invalid id: cannot be greater than 17 digits" });
+    if(!/^.{17}$/.test(steamid64)) { 
+      return res.status(400).json({ error: "invalid id: must be 17 digits" });
     }
 
     logSteamTool("Leetify", steamid64, "");
@@ -179,7 +179,7 @@ app.get("/api/resolve-vanity", async (req, res) => {
     return res.status(400).json({ error: "invalid id: only A-Z, a-z, 0-9, _, - allowed" });
   }
 
-  if(!/^.{1,32}$/.test(normalised)) { 
+  if(!/^.{3,32}$/.test(normalised)) { 
     return res.status(400).json({ error: "invalid id: cannot be greater than 32 characters" });
   }
 
