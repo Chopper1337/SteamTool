@@ -18,8 +18,8 @@
       "Professional player"
     ],
     "links": [
-      "https://www.hltv.org/player/7998/s1mple",
-      "https://www.faceit.com/en/players/Akkaman1"
+      "hltv.org/player/7998/s1mple",
+      "faceit.com/en/players/Akkaman1"
     ]
   },
   {
@@ -29,5 +29,18 @@
       "SteamTool developer"
     ],
     "links": []
+  },
+  {
+    "ids" : [ "76561198044745785"],
+    "name": "PSP1G/SmileyBS",
+    "info": [
+      "YouTuber",
+      "Twitch streamer"
+    ],
+    "links": [
+      "youtube.com/@PSP1G/",
+      "youtube.com/@smileyBS",
+      "twitch.tv/psp1g"
+    ]
   }
 ]
