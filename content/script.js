@@ -279,10 +279,7 @@ async function fetchKnownPlayerInfo(id) {
       logLine("Found known player", "ok");
       logLine(`Name: ${a.name}`, "muted");
       for (const link in a.links) {
-        if (object.hasOwnProperty(link)) {
-          const element = object[link];
           logLine(link, 'muted');
-        }
       }
     }
   } catch (e) {
