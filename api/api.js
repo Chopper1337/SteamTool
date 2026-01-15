@@ -132,14 +132,18 @@ app.get("/api/leetify", async (req, res) => {
       return res.status(400).json({ error: "invalid id: must contain only digits" });
     }
 
+    // Only allow ASCII letters and digits
+    if(!/^.{1,17}$/.test(steamid64)) { 
+      return res.status(400).json({ error: "invalid id: cannot be greater than 17 digits" });
+    }
+
     logSteamTool("Leetify", steamid64, "");
 
     const url = `https://api.leetify.com/api/profile/id/${encodeURIComponent(steamid64)}`;
     const headers = { Accept: "application/json" };
-    // If Leetify needs an API key:
+    // Add Leetify API key when we get one...
     // headers["Authorization"] = `Bearer ${process.env.LEETIFY_API_KEY}`;
 
-    //const response = await fetch(url, { headers });
     const response = await fetch(url);
     if (!response.ok) {
       const text = await response.text();
@@ -163,26 +167,30 @@ app.get("/api/resolve-vanity", async (req, res) => {
   const rawId = (req.query.id || "").toString();
   if (!rawId) return res.status(400).json({ error: "missing id query parameter" });
 
-  // Normalize: remove leading/trailing slashes and whitespace
-  const normalized = rawId.replace(/^\/+|\/+$/g, "").trim();
+  // Normalise: remove leading/trailing slashes and whitespace
+  const normalised = rawId.replace(/^\/+|\/+$/g, "").trim();
 
   // Security validation: allow only alphanumerics
-  // Reject empty after normalization
-  if (!normalized) return res.status(400).json({ error: "invalid id" });
+  // Reject empty after normalisation
+  if (!normalised) return res.status(400).json({ error: "invalid id" });
 
   // Only allow ASCII letters and digits
-  if (!/^[A-Za-z0-9_-]+$/.test(normalized)) {
+  if (!/^[A-Za-z0-9_-]+$/.test(normalised)) {
     return res.status(400).json({ error: "invalid id: only A-Z, a-z, 0-9, _, - allowed" });
   }
 
-  const id = normalized; // safe to use from here on
+  if(!/^.{1,32}$/.test(normalised)) { 
+    return res.status(400).json({ error: "invalid id: cannot be greater than 32 characters" });
+  }
+
+  const id = normalised; // safe to use from here on
 
   const resolvers = RESOLVERS;
   if (!Array.isArray(resolvers) || resolvers.length === 0) {
     return res.status(500).json({ error: "no resolvers configured" });
   }
 
-  // Randomize start index to distribute load, but keep order otherwise (wrap around)
+  // Randomise start index to distribute load, but keep order otherwise (wrap around)
   const start = Math.floor(Math.random() * resolvers.length);
   const ordered = [];
   for (let i = 0; i < resolvers.length; i++) {
