@@ -21,7 +21,7 @@ const CONFIG = [
   },
   {
     id: "CSStats.gg",
-    title: "csstats.gg",
+    title: "CSStats.gg",
     desc: "CS stats, HLTV rating and FACEIT.",
     url_vanity: null,
     url_64: "https://csstats.gg/player/{steamid64}",
