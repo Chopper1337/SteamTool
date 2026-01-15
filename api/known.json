@@ -1,6 +1,6 @@
 [
   {
-    "ids": [ "76561198043955928", "76561198043955929" ],
+    "ids": [ "76561198043955928" ],
     "name": "neokCS",
     "info": [
       "YouTuber",
@@ -9,6 +9,17 @@
     "links": [
       "twitch.tv/neok",
       "youtube.com/neokcs"
+    ]
+  },
+  {
+    "ids": [ "76561198034202275" ],
+    "name": "s1mple",
+    "info": [
+      "Professional player"
+    ],
+    "links": [
+      "https://www.hltv.org/player/7998/s1mple",
+      "https://www.faceit.com/en/players/Akkaman1"
     ]
   }
 ]
