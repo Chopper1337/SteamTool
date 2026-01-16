@@ -174,8 +174,7 @@ async function getVisitorCount() {
   }
 }
 
-async function init() {
-
+async function bumpVisitorCount() {
   try {
     const resp = await fetch('/api/visitor-count', {
       method: 'POST',
@@ -184,6 +183,11 @@ async function init() {
   } catch (err) {
     console.error('Failed to update visitor count:', err);
   }
+
+}
+
+
+async function init() {
 
   const parsed = parsePath();
   if (!parsed) {
@@ -234,6 +238,7 @@ async function init() {
   buildTargets(parsed, steamid64);
   fetchLeetifyStats(steamid64);
   fetchKnownPlayerInfo(steamid64);
+  bumpVisitorCount();
 }
 
 async function fetchLeetifyStats(id) {
