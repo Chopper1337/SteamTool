@@ -42,5 +42,17 @@
       "youtube.com/@smileyBS",
       "twitch.tv/psp1g"
     ]
+  },
+  {
+    "ids" : [ "76561198461560695"],
+    "name": "FranzJ",
+    "info": [
+      "YouTuber",
+      "Twitch streamer"
+    ],
+    "links": [
+      "youtube.com/@franzjx/",
+      "twitch.tv/franzj"
+    ]
   }
 ]
