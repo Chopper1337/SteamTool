@@ -60,7 +60,7 @@ This API provides two endpoints for resolving Steam IDs and fetching profile dat
   ```
 
 **Notes**:
-- Leetify API requires an optional `Authorization` header with a Bearer token (configured via `LEETIFY_API_KEY` environment variable).
+- Leetify API requires setting the URL (`LEETIFY_API_URL` environment variable) and an optional `Authorization` header with a Bearer token (`LEETIFY_API_KEY` environment variable).
 - All requests have a 5-second timeout to prevent hanging.
 
 ---
@@ -158,10 +158,34 @@ This API provides two endpoints for resolving Steam IDs and fetching profile dat
 
 ---
 
+### 5. `/api/known` (POST)
+
+**Purpose**: Fetch information about an account
+
+**Response Examples**:
+- Success:
+  ```json 
+  {
+  "ids": [ "76561198043955928" ], 
+  "name": "neokCS",
+  "info": [ 
+    "YouTuber",
+    "Twitch streamer"
+    ],
+  "links": [
+    "twitch.tv/neok",
+    "youtube.com/neokcs"
+    ]
+  }
+  ```
+
+---
+
 ## Configuration
 - **Environment Variables**:
   - `PORT`: Server port (default: `process.env.PORT`).
   - `HOST`: Server host (default: `process.env.HOST`).
+  - `LEETIFY_API_URL`: Leetify API URL (provided by them)
   - `LEETIFY_API_KEY`: Optional API key for Leetify (commented in code).
 - **Dependencies**:
   - Open-source libraries: Express, body-parser, Node.js standard libraries.
