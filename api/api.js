@@ -8,6 +8,7 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT;
 const HOST = process.env.HOST;
+const LEETIFY_API_URL = process.env.LEETIFY_API_URL;
 
 const visitorCountPath = path.join(__dirname, "visitor_count.txt");
 
@@ -166,7 +167,7 @@ app.get("/api/leetify", async (req, res) => {
 
     logSteamTool("Leetify", steamid64, "");
 
-    const url = `https://api.leetify.com/api/profile/id/${encodeURIComponent(steamid64)}`;
+    const url = `${LEETIFY_API_URL}${encodeURIComponent(steamid64)}`;
     const headers = { Accept: "application/json" };
     // Add Leetify API key when we get one...
     // headers["Authorization"] = `Bearer ${process.env.LEETIFY_API_KEY}`;
