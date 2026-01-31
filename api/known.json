@@ -54,5 +54,17 @@
       "youtube.com/@franzjx/",
       "twitch.tv/franzj"
     ]
+  },
+  {
+    "ids" : [ "76561198216507591"],
+    "name": "Scouter",
+    "info": [
+      "Twitch streamer",
+      "YouTuber"
+    ],
+    "links": [
+      "https://www.twitch.tv/scouter",
+      "http://youtube.com/@scouter"
+    ]
   }
 ]
