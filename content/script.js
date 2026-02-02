@@ -40,6 +40,16 @@ const CONFIG = [
     open: "new",
   },
   {
+    id: "skinflow",
+    title: "CS2Tracker",
+    desc: "Stats from Steam, FACEIT and Leetify.<br>Risk estimation and Inventory viewer.",
+    url_vanity: "https://steamcommunity.tip/{path}",
+    url_64: "https://steamcommunity.tip/{path}",
+    needs64: false,
+    favicon: "https://skinflow.gg/_ipx/_/images/skinflow-logo.webp",
+    open: "new",
+  },
+  {
     id: "csrep",
     title: "CSRep.gg",
     desc: "Leetify stats, AllStar highlights and community reputation.<br>Inventory viewer.",
