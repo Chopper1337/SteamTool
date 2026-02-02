@@ -12,7 +12,7 @@ const CONFIG = [
   {
     id: "csstat",
     title: "CSSt.at",
-    desc: "Stats from Steam, FACEIT, Leetify and CSStats.gg.<br>Highlights from AllStar.<br>Inventory viewer.",
+    desc: "Steam, FACEIT, Leetify and CSStats.gg stats.<br>AllStar Highlights.<br>Inventory viewer.",
     url_vanity: "https://steamcommunity.rip/{path}",
     url_64: "https://steamcommunity.rip/{path}",
     needs64: false,
@@ -32,7 +32,7 @@ const CONFIG = [
   {
     id: "catstats",
     title: "catstats.gg",
-    desc: "Stats from Steam, FACEIT and Leetify.",
+    desc: "Steam, FACEIT and Leetify stats.<br>Trust rating and community reputation.",
     url_vanity: null,
     url_64: "https://catstats.gg/player/{steamid64}",
     needs64: false,
@@ -42,7 +42,7 @@ const CONFIG = [
   {
     id: "skinflow",
     title: "CS2Tracker",
-    desc: "Stats from Steam, FACEIT and Leetify.<br>Risk estimation and Inventory viewer.",
+    desc: "Steam, FACEIT and Leetify stats.<br>Risk estimation and Inventory viewer.",
     url_vanity: "https://steamcommunity.tip/{path}",
     url_64: "https://steamcommunity.tip/{path}",
     needs64: false,
