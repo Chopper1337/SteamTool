@@ -109,6 +109,7 @@ const CONFIG = [
     favicon: "https://csxp.gg/favicon.svg",
     open: "new",
   },
+  /*
   {
     id: "csgrind",
     title: "CSGrind.com",
@@ -119,6 +120,7 @@ const CONFIG = [
     favicon: "https://csgrind.com/browsericon.jpeg",
     open: "new",
   },
+  */
   {
     id: "cswatch",
     title: "CSWat.ch",
