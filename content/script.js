@@ -309,8 +309,8 @@ const PathParser = {
       }
     }
 
-    // Check if it's a steamid64 (17 digits, starts with 7656119)
-    if (/^7656119\d{10}$/.test(cleaned)) {
+    // Check if it's a steamid64 (17 digits, starts with 76561198)
+    if (/^76561198\d{10}$/.test(cleaned)) {
       return {
         kind: 'profiles',
         target: cleaned,
