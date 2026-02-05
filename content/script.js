@@ -321,7 +321,6 @@ const PathParser = {
     if (/^[a-zA-Z0-9_-]+$/.test(cleaned)) {
       return {
         kind: 'id',
-        raw: `id/${cleaned}`,
         target: cleaned,
       };
     }
@@ -470,7 +469,14 @@ const URLBuilder = {
       );
     }
 
-    const segments = parsed.raw.split("/").map(encodeURIComponent);
+    const segments = null;
+    if (parsed.raw) {
+      segments = parsed.raw.split("/").map(encodeURIComponent);
+    }
+    else {
+      segments = `${parsed.id}/${parsed.target}`.split("/").map(encodeURIComponent);
+    }
+
     const safePath = segments.join("/");
     
     return (target.url_vanity || target.url_64)
