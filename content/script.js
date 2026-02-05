@@ -8,7 +8,7 @@ const CONFIG = [
     url_64: "https://steamcommunity.com/{path}",
     needs64: false,
     favicon: "https://steamcommunity.com/favicon.ico",
-    open: "same",
+    open: "new",
   },
   {
     id: "csstat",
@@ -18,7 +18,7 @@ const CONFIG = [
     url_64: "https://steamcommunity.rip/{path}",
     needs64: false,
     favicon: "",
-    open: "same",
+    open: "new",
   },
   {
     id: "CSStats.gg",
@@ -28,7 +28,7 @@ const CONFIG = [
     url_64: "https://csstats.gg/player/{steamid64}",
     needs64: true,
     favicon: "https://static.csstats.gg/images/favicon.svg",
-    open: "same",
+    open: "new",
   },
   {
     id: "catstats",
@@ -38,7 +38,7 @@ const CONFIG = [
     url_64: "https://catstats.gg/player/{steamid64}",
     needs64: false,
     favicon: "https://catstats.gg/favicon.ico",
-    open: "same",
+    open: "new",
   },
   {
     id: "skinflow",
@@ -48,7 +48,7 @@ const CONFIG = [
     url_64: "https://steamcommunity.tips/{path}",
     needs64: false,
     favicon: "https://skinflow.gg/_ipx/_/images/skinflow-logo.webp",
-    open: "same",
+    open: "new",
   },
   {
     id: "csrep",
@@ -58,7 +58,7 @@ const CONFIG = [
     url_64: "https://wsteamcommunity.com/{path}",
     needs64: false,
     favicon: "https://raw.githubusercontent.com/Chopper1337/SteamTool/refs/heads/main/resources/csrep.ico",
-    open: "same",
+    open: "new",
   },
   {
     id: "steamsets",
@@ -68,7 +68,7 @@ const CONFIG = [
     url_64: "https://ssteamcommunity.com/{path}",
     needs64: false,
     favicon: "https://steamsets.com/favicon.ico",
-    open: "same",
+    open: "new",
   },
   {
     id: "steamhist",
@@ -78,7 +78,7 @@ const CONFIG = [
     url_64: "https://steamhistory.net/id/{steamid64}",
     needs64: true,
     favicon: "https://steamhistory.net/favicon-32x32.png",
-    open: "same",
+    open: "new",
   },
   {
     id: "steamiduk",
@@ -88,7 +88,7 @@ const CONFIG = [
     url_64: "https://steamid.uk/profile/{steamid64}",
     needs64: true,
     favicon: "https://cdn.steamid.uk/images/favicon/android-icon-192x192.png",
-    open: "same",
+    open: "new",
   },
   {
     id: "steamdb",
@@ -98,7 +98,7 @@ const CONFIG = [
     url_64: "https://steamdb.info/calculator/{steamid64}",
     needs64: true,
     favicon: "https://steamdb.info/static/logos/vector_prefers_schema.svg",
-    open: "same",
+    open: "new",
   },
   {
     id: "csxp",
@@ -108,7 +108,7 @@ const CONFIG = [
     url_64: "https://csxp.gg/players/{steamid64}",
     needs64: true,
     favicon: "https://csxp.gg/favicon.svg",
-    open: "same",
+    open: "new",
   },
   {
     id: "cswatch",
@@ -118,7 +118,7 @@ const CONFIG = [
     url_64: "https://steamcommunity.ch/{path}",
     needs64: false,
     favicon: "https://cswat.ch/favicon.ico",
-    open: "same",
+    open: "new",
   },
 ];
 
