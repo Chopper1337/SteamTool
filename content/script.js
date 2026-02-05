@@ -309,7 +309,7 @@ const PathParser = {
       }
     }
 
-    // Check if it's a steamid64 (17 digits, starts with 76561198)
+    // Check if it's a steamid64 (17 digits, starts with 76561198 - https://help.steampowered.com/en/faqs/view/2816-BE67-5B69-0FEC)
     if (/^76561198\d{10}$/.test(cleaned)) {
       return {
         kind: 'profiles',
