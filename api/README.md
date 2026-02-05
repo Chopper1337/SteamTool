@@ -122,7 +122,7 @@ This API provides two endpoints for resolving Steam IDs and fetching profile dat
 ```
 
 **Notes**:
-- Resolvers are randomized to distribute load.
+- Resolvers are randomised to distribute load.
 - If a resolver returns a numeric string or integer, it's automatically converted to a string.
 - Invalid JSON responses from resolvers are parsed as text to detect numeric IDs.
 

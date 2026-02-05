@@ -131,7 +131,7 @@ const Utils = {
     return new Date().toISOString().slice(0, 19).replace("T", " ");
   },
 
-  sanitizeInput(str) {
+  sanitiseInput(str) {
     return str?.trim().replace(/[<>]/g, "") || "";
   },
 
@@ -359,9 +359,9 @@ const API = {
     try {
       Logger.info("Attempting to resolve vanity ID to steamid64...");
       
-      const sanitized = Utils.sanitizeInput(vanityId);
+      const sanitised = Utils.sanitiseInput(vanityId);
       const data = await this.fetchJSON(
-        `/api/resolve-vanity?id=${encodeURIComponent(sanitized)}`
+        `/api/resolve-vanity?id=${encodeURIComponent(sanitised)}`
       );
 
       if (!data?.steamid64) {
@@ -667,7 +667,7 @@ const UIBuilder = {
 
 // Main Application
 const App = {
-  async initialize() {
+  async initialise() {
     DOM.init();
     InputHandler.init();
 
@@ -725,9 +725,9 @@ const App = {
   },
 };
 
-// Initialize on DOM ready
+// Initialise on DOM ready
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", () => App.initialize());
+  document.addEventListener("DOMContentLoaded", () => App.initialise());
 } else {
-  App.initialize();
+  App.initialise();
 }

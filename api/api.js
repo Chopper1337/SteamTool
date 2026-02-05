@@ -103,17 +103,17 @@ app.get('/api/known', (req, res) => {
   const rawId = (req.query.id || "").toString();
   if (!rawId) return res.status(400).json({ error: "missing id query parameter" });
 
-  // Normalize: remove slashes and whitespace
-  const normalized = rawId.replace(/^\/+|\/+$/g, "").trim();
-  if (!normalized) return res.status(400).json({ error: "invalid id" });
+  // Normalise: remove slashes and whitespace
+  const normalised = rawId.replace(/^\/+|\/+$/g, "").trim();
+  if (!normalised) return res.status(400).json({ error: "invalid id" });
 
   // Validate: must be 17 digits
-  if (!/^\d{17}$/.test(normalized)) {
+  if (!/^\d{17}$/.test(normalised)) {
     return res.status(400).json({ error: "invalid id: must be 17 digits" });
   }
 
   // Search for the ID in the `ids` array (now stored as strings)
-  const found = KNOWN.find(item => item.ids.includes(normalized));
+  const found = KNOWN.find(item => item.ids.includes(normalised));
 
   if (found) {
     res.json(found);
