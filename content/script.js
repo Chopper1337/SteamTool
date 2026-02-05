@@ -474,7 +474,7 @@ const URLBuilder = {
       segments = parsed.raw.split("/").map(encodeURIComponent);
     }
     else {
-      segments = `${parsed.id}/${parsed.target}`.split("/").map(encodeURIComponent);
+      segments = `${parsed.kind}/${parsed.target}`.split("/").map(encodeURIComponent);
     }
 
     const safePath = segments.join("/");
