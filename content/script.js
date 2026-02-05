@@ -465,6 +465,8 @@ const URLBuilder = {
       return target.url_64.replace("{steamid64}", encodeURIComponent(steamid64));
     }
 
+    if (!parsed.kind) return null;
+
     // parsed.kind is either "id" (vanity) or "profiles" (steamid64) 
     const path = `${encodeURIComponent(parsed.kind)}/${encodeURIComponent(parsed.target)}`;
     const template = target?.url_vanity || target?.url_64;
@@ -716,7 +718,7 @@ const App = {
       return parsed.target;
     }
 
-    Logger.success(
+    Logger.info(
       `Unknown path kind "${parsed.kind}". Attempting to treat as raw path.`
     );
     return null;
