@@ -122,7 +122,7 @@ const CONFIG = [
   },
 ];
 
-const API_BASE = "https://steamcommunityyy.com/api";
+const API_BASE = `{window.location.origin}/api`
 const MAX_LOG_LINES = 200;
 
 // Utility Functions
@@ -272,25 +272,37 @@ const PathParser = {
         const [kind, ...rest] = parts;
         const kindLower = kind.toLowerCase();
         
-        if (kindLower === 'id' || kindLower === 'profiles') {
+        // Support both 'profile' and 'profiles'
+        if (kindLower === 'id') {
           return {
-            kind: kindLower,
+            kind: 'id',
+            target: rest.join("/"),
+          };
+        } else if (kindLower === 'profile' || kindLower === 'profiles') {
+          return {
+            kind: 'profiles',
             target: rest.join("/"),
           };
         }
       }
     }
 
-    // Try to parse as path format: "id/vanity" or "profiles/123456789"
+    // Try to parse as path format: "id/vanity" or "profiles/123456789" or "profile/123456789"
     if (cleaned.includes('/')) {
       const parts = cleaned.split('/').filter(p => p.length > 0);
       if (parts.length >= 2) {
         const [kind, ...rest] = parts;
         const kindLower = kind.toLowerCase();
         
-        if (kindLower === 'id' || kindLower === 'profiles') {
+        // Support both 'profile' and 'profiles'
+        if (kindLower === 'id') {
           return {
-            kind: kindLower,
+            kind: 'id',
+            target: rest.join("/"),
+          };
+        } else if (kindLower === 'profile' || kindLower === 'profiles') {
+          return {
+            kind: 'profiles',
             target: rest.join("/"),
           };
         }
