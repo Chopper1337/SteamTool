@@ -321,6 +321,7 @@ const PathParser = {
     if (/^[a-zA-Z0-9_-]+$/.test(cleaned)) {
       return {
         kind: 'id',
+        raw: `id/${cleaned}`
         target: cleaned,
       };
     }
