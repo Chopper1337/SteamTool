@@ -385,7 +385,7 @@ const API = {
       Logger.info("Attempting to fetch Leetify stats...");
       
       const data = await this.fetchJSON(
-        `${API_BASE}/leetify?id=${encodeURIComponent(steamid64)}`
+        `/api/leetify?id=${encodeURIComponent(steamid64)}`
       );
 
       if (!data?.recentGameRatings) {
