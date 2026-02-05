@@ -1,3 +1,4 @@
+// Configuration
 const CONFIG = [
   {
     id: "steam",
@@ -109,18 +110,6 @@ const CONFIG = [
     favicon: "https://csxp.gg/favicon.svg",
     open: "new",
   },
-  /*
-  {
-    id: "csgrind",
-    title: "CSGrind.com",
-    desc: 'Leetify and FACEIT stats. Risk factor. ',
-    url_vanity: "https://osteamcommunity.com/{path}",
-    url_64: "https://osteamcommunity.com/{path}",
-    needs64: false,
-    favicon: "https://csgrind.com/browsericon.jpeg",
-    open: "new",
-  },
-  */
   {
     id: "cswatch",
     title: "CSWat.ch",
@@ -134,313 +123,599 @@ const CONFIG = [
 ];
 
 const API_BASE = "https://steamcommunityyy.com/api";
+const MAX_LOG_LINES = 200;
 
-function nowStamp() {
-  const d = new Date();
-  return d.toISOString().slice(0, 19).replace("T", " ");
-}
+// Utility Functions
+const Utils = {
+  nowStamp() {
+    return new Date().toISOString().slice(0, 19).replace("T", " ");
+  },
 
-function logLine(text, cls) {
-  const el = document.getElementById("statusArea");
-  const span = document.createElement("div");
-  span.className = "logText";
-  span.textContent = `[${nowStamp()}] ${text}`;
-  console.log(`${span.textContent}`);
-  if (cls) span.className = span.className + " " + cls;
-  el.appendChild(span);
-  // keep last 200 lines max
-  while (el.children.length > 200) el.removeChild(el.firstChild);
-  // scroll to bottom
-  el.scrollTop = el.scrollHeight;
-}
+  sanitizeInput(str) {
+    return str?.trim().replace(/[<>]/g, "") || "";
+  },
 
-function clearLog() {
-  const el = document.getElementById("statusArea");
-  el.innerHTML = "";
-}
+  getInitials(title) {
+    return title
+      .split(/\s/)
+      .map((s) => s[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase();
+  },
 
-function parsePath() {
-  const p = window.location.pathname.replace(/^\/+|\/+$/g, "");
-  if (!p) return null;
-  const parts = p.split("/");
-  if (parts.length < 2) return null;
-  const kind = parts[0];
-  const rest = parts.slice(1).join("/");
-  return { raw: p, kind, target: rest };
-}
-
-const pathInput = document.getElementById("pathInput");
-const statusArea = document.getElementById("statusArea");
-const targetsList = document.getElementById("targetsList");
-
-async function getVisitorCount() {
-  try {
-    const resp = await fetch('/api/visitor-count', { method: 'GET', credentials: 'same-origin', })
-    if (!resp.ok) { return; }
-    const a = await resp.json();
-    if (!a) { return; }
-    console.log(resp.body);
-  }
-  catch (err){
-    console.error('Failed to get visitor count:', err);
-  }
-}
-
-async function bumpVisitorCount() {
-  try {
-    const resp = await fetch('/api/visitor-count', {
-      method: 'POST',
-      credentials: 'same-origin',
-    });
-  } catch (err) {
-    console.error('Failed to update visitor count:', err);
-  }
-
-}
-
-
-async function init() {
-
-  const parsed = parsePath();
-  if (!parsed) {
-    pathInput.value = window.location.href;
-    logLine(
-      "No profile path found. Use /id/<vanity> or /profiles/<steamid64> in the URL.",
-      "muted"
-    );
-    buildTargets(null, null);
-    return;
-  }
-
-  pathInput.value = parsed.target;
-
-  let steamid64 = null;
-
-  if (parsed.kind.toLowerCase() === "id") {
-    logLine("Attempting to resolve vanity ID to steamid64...", "muted");
+  async copyToClipboard(text) {
     try {
-      // call your server-side resolver
-      const vanity = parsed.target.replace(/^\/+|\/+$/g, ""); // e.g. "valor-cant"
-      const resp = await fetch(`/api/resolve-vanity?id=${encodeURIComponent(vanity)}`, {
-        method: "GET",
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (error) {
+      console.error("Clipboard write failed:", error);
+      return false;
+    }
+  },
+};
+
+// DOM Cache
+const DOM = {
+  pathInput: null,
+  statusArea: null,
+  targetsList: null,
+
+  init() {
+    this.pathInput = document.getElementById("pathInput");
+    this.statusArea = document.getElementById("statusArea");
+    this.targetsList = document.getElementById("targetsList");
+  },
+};
+
+// Logger
+const Logger = {
+  log(text, type = "info") {
+    const el = DOM.statusArea;
+    if (!el) return;
+
+    const logEntry = document.createElement("div");
+    logEntry.className = `logText ${type}`;
+    logEntry.textContent = `[${Utils.nowStamp()}] ${text}`;
+    console.log(logEntry.textContent);
+
+    el.appendChild(logEntry);
+
+    // Maintain max log lines
+    while (el.children.length > MAX_LOG_LINES) {
+      el.removeChild(el.firstChild);
+    }
+
+    // Auto-scroll to bottom
+    el.scrollTop = el.scrollHeight;
+  },
+
+  clear() {
+    if (DOM.statusArea) {
+      DOM.statusArea.innerHTML = "";
+    }
+  },
+
+  info(text) {
+    this.log(text, "muted");
+  },
+
+  success(text) {
+    this.log(text, "ok");
+  },
+
+  error(text) {
+    this.log(text, "error");
+  },
+};
+
+// Path Parser
+const PathParser = {
+  parse() {
+    const pathname = window.location.pathname.replace(/^\/+|\/+$/g, "");
+    
+    if (!pathname) return null;
+
+    const parts = pathname.split("/");
+    if (parts.length < 2) return null;
+
+    const [kind, ...rest] = parts;
+    
+    return {
+      raw: pathname,
+      kind: kind.toLowerCase(),
+      target: rest.join("/"),
+    };
+  },
+
+  /**
+   * Parse user input to extract Steam profile information
+   * Handles various formats:
+   * - Full URLs: https://steamcommunity.com/id/vanity
+   * - Partial URLs: steamcommunity.com/profiles/123456789
+   * - Path only: /id/vanity or id/vanity
+   * - Direct ID: vanity or 123456789
+   */
+  parseInput(input) {
+    if (!input || typeof input !== 'string') return null;
+
+    const cleaned = input.trim();
+    if (!cleaned) return null;
+
+    // Try to parse as URL
+    let urlPath = null;
+    try {
+      // Check if it's a full URL
+      if (cleaned.match(/^https?:\/\//i)) {
+        const url = new URL(cleaned);
+        urlPath = url.pathname;
+      } 
+      // Check if it's a domain-like string (steamcommunity.com/...)
+      else if (cleaned.match(/^[a-z0-9.-]+\.[a-z]{2,}\//i)) {
+        const url = new URL('https://' + cleaned);
+        urlPath = url.pathname;
+      }
+      // Check if it starts with a slash
+      else if (cleaned.startsWith('/')) {
+        urlPath = cleaned;
+      }
+    } catch (e) {
+      // Not a valid URL, continue with other parsing
+    }
+
+    // If we extracted a path from URL, parse it
+    if (urlPath) {
+      const pathCleaned = urlPath.replace(/^\/+|\/+$/g, "");
+      const parts = pathCleaned.split("/");
+      
+      if (parts.length >= 2) {
+        const [kind, ...rest] = parts;
+        const kindLower = kind.toLowerCase();
+        
+        if (kindLower === 'id' || kindLower === 'profiles') {
+          return {
+            kind: kindLower,
+            target: rest.join("/"),
+          };
+        }
+      }
+    }
+
+    // Try to parse as path format: "id/vanity" or "profiles/123456789"
+    if (cleaned.includes('/')) {
+      const parts = cleaned.split('/').filter(p => p.length > 0);
+      if (parts.length >= 2) {
+        const [kind, ...rest] = parts;
+        const kindLower = kind.toLowerCase();
+        
+        if (kindLower === 'id' || kindLower === 'profiles') {
+          return {
+            kind: kindLower,
+            target: rest.join("/"),
+          };
+        }
+      }
+    }
+
+    // Check if it's a steamid64 (17 digits, starts with 7656119)
+    if (/^7656119\d{10}$/.test(cleaned)) {
+      return {
+        kind: 'profiles',
+        target: cleaned,
+      };
+    }
+
+    // Assume it's a vanity ID (alphanumeric, underscores, hyphens)
+    if (/^[a-zA-Z0-9_-]+$/.test(cleaned)) {
+      return {
+        kind: 'id',
+        target: cleaned,
+      };
+    }
+
+    return null;
+  },
+
+  /**
+   * Navigate to a new profile
+   */
+  navigateToProfile(kind, target) {
+    const newPath = `/${kind}/${target}`;
+    window.history.pushState({}, '', newPath);
+  },
+};
+
+// API Service
+const API = {
+  async fetchJSON(url, options = {}) {
+    const response = await fetch(url, {
+      credentials: "same-origin",
+      ...options,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ 
+        error: response.statusText 
+      }));
+      throw new Error(error.error || error.message || `HTTP ${response.status}`);
+    }
+
+    return response.json();
+  },
+
+  async resolveVanity(vanityId) {
+    try {
+      Logger.info("Attempting to resolve vanity ID to steamid64...");
+      
+      const sanitized = Utils.sanitizeInput(vanityId);
+      const data = await this.fetchJSON(
+        `/api/resolve-vanity?id=${encodeURIComponent(sanitized)}`
+      );
+
+      if (!data?.steamid64) {
+        throw new Error("No steamid64 returned");
+      }
+
+      Logger.success(
+        `Resolved to steamid64: ${data.steamid64} (via ${data.source || "resolver"})`
+      );
+      return data.steamid64;
+    } catch (error) {
+      Logger.error(`Failed to resolve vanity: ${error.message}`);
+      throw error;
+    }
+  },
+
+  async fetchLeetifyStats(steamid64) {
+    if (!steamid64) return null;
+
+    try {
+      Logger.info("Attempting to fetch Leetify stats...");
+      
+      const data = await this.fetchJSON(
+        `${API_BASE}/leetify?id=${encodeURIComponent(steamid64)}`
+      );
+
+      if (!data?.recentGameRatings) {
+        throw new Error("Invalid response format");
+      }
+
+      Logger.success("Fetched Leetify stats:");
+      Logger.info(`Aim: ${data.recentGameRatings.aim.toFixed(2)}`);
+      Logger.info(`Positioning: ${data.recentGameRatings.positioning.toFixed(2)}`);
+      Logger.info(`Util: ${data.recentGameRatings.utility.toFixed(2)}`);
+
+      return data;
+    } catch (error) {
+      Logger.error("Failed to fetch Leetify stats");
+      Logger.info(error.message);
+      return null;
+    }
+  },
+
+  async fetchKnownPlayerInfo(steamid64) {
+    if (!steamid64) return null;
+
+    try {
+      const data = await this.fetchJSON(
+        `${API_BASE}/known?id=${encodeURIComponent(steamid64)}`
+      );
+
+      if (!data) return null;
+
+      Logger.success("Found known player");
+      Logger.info(`Name: ${data.name}`);
+      
+      if (data.info?.length) {
+        data.info.forEach((info) => Logger.info(info));
+      }
+
+      if (data.links?.length) {
+        Logger.info("Links:");
+        data.links.forEach((link) => Logger.info(link));
+      }
+
+      return data;
+    } catch (error) {
+      console.log(`Failed to check known player: ${error.message}`);
+      return null;
+    }
+  },
+
+  async updateVisitorCount() {
+    try {
+      await fetch("/api/visitor-count", {
+        method: "POST",
         credentials: "same-origin",
       });
-
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({ error: resp.statusText }));
-        throw new Error(err.error || err.message || `HTTP ${resp.status}`);
-      }
-      const body = await resp.json();
-      if (body && body.steamid64) {
-        steamid64 = body.steamid64;
-        logLine(`Resolved to steamid64: ${steamid64} (via ${body.source || "resolver"})`, "ok");
-      } else {
-        throw new Error(body.error || "no steamid64 returned");
-      }
-    } catch (err) {
-      logLine(`Failed to resolve vanity: ${err.message}`, "error");
+    } catch (error) {
+      console.error("Failed to update visitor count:", error);
     }
-  } else if (parsed.kind.toLowerCase() === "profiles") {
-    steamid64 = parsed.target;
-    logLine(`Detected steamid64: ${steamid64}`, "ok");
-  } else {
-    logLine(`Unknown path kind "${parsed.kind}". Attempting to treat as raw path.`, "ok");
-  }
+  },
 
-  buildTargets(parsed, steamid64);
-  fetchLeetifyStats(steamid64);
-  fetchKnownPlayerInfo(steamid64);
-  bumpVisitorCount();
-}
+  async getVisitorCount() {
+    try {
+      const data = await this.fetchJSON("/api/visitor-count");
+      return data;
+    } catch (error) {
+      console.error("Failed to get visitor count:", error);
+      return null;
+    }
+  },
+};
 
-async function fetchLeetifyStats(id) {
-  if (!id) {
-    return;
-  }
-  try {
-    logLine(`Attempting to fetch Leetify stats...`, "muted");
-    const respstats = await fetch(
-      `${API_BASE}/leetify?id=${encodeURIComponent(id)}`
-    );
-    if (!respstats.ok) {
-      logLine(`Failed to fetch stats`, "error");
-      logLine(`Response status was not OK`, "muted");
+// URL Builder
+const URLBuilder = {
+  build(target, parsed, steamid64) {
+    if (!parsed) return null;
+
+    if (target.needs64) {
+      if (!steamid64) return null;
+      return target.url_64.replace(
+        "{steamid64}",
+        encodeURIComponent(steamid64)
+      );
+    }
+
+    const segments = parsed.raw.split("/").map(encodeURIComponent);
+    const safePath = segments.join("/");
+    
+    return (target.url_vanity || target.url_64)
+      .replace("{path}", safePath)
+      .replace("{steamid64}", encodeURIComponent(steamid64 || ""));
+  },
+};
+
+// Input Handler
+const InputHandler = {
+  init() {
+    if (!DOM.pathInput) return;
+
+    // Handle Enter key
+    DOM.pathInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.handleSubmit();
+      }
+    });
+
+    // Optional: Handle input on blur
+    DOM.pathInput.addEventListener('blur', () => {
+      // Only auto-submit if user clearly wants to (you can remove this if not desired)
+      // this.handleSubmit();
+    });
+  },
+
+  async handleSubmit() {
+    const input = DOM.pathInput.value;
+    
+    if (!input || !input.trim()) {
+      Logger.error("Please enter a Steam profile URL, vanity ID, or SteamID64");
       return;
     }
-    const a = await respstats.json();
-    if (!a) {
-      logLine("Failed to fetch Leetify stats", "error");
-      logLine(`Could not parse response as JSON`, "muted");
+
+    Logger.info("Parsing input...");
+    const parsed = PathParser.parseInput(input);
+
+    if (!parsed) {
+      Logger.error(
+        "Could not parse input. Please enter a valid Steam profile URL, vanity ID, or SteamID64"
+      );
       return;
-    } else {
-      logLine("Fetched Leetify stats:", "ok");
-      logLine(`Aim: ${a.recentGameRatings.aim.toFixed(2)}`, "muted");
-      logLine(`Positioning: ${a.recentGameRatings.positioning.toFixed(2)}`, "muted");
-      logLine(`Util: ${a.recentGameRatings.utility.toFixed(2)}`, "muted");
     }
-  } catch (e) {
-    logLine("Failed to fetch Leetify stats", "error");
-    logLine(`${e}`, "muted");
-  }
-}
 
-async function fetchKnownPlayerInfo(id) {
-  if (!id) { return; }
+    Logger.success(`Detected ${parsed.kind === 'id' ? 'vanity ID' : 'SteamID64'}: ${parsed.target}`);
 
-  try {
-    const resp = await fetch(
-      `${API_BASE}/known?id=${encodeURIComponent(id)}`
-    );
-    if (!resp.ok) { return; }
-    const a = await resp.json();
-    if (!a) { return; }
-    logLine("Found known player", "ok");
-    logLine(`Name: ${a.name}`, "muted");
-    for (const i of a.info) {
-      logLine(`${i}`, 'muted');
-    }
-    if (!a.links || a.links.length == 0 ) { return; }
-    logLine(`Links:`, "muted");
-    for (const l of a.links) {
-      logLine(`${l}`, 'muted');
-    }
-  } catch (e) {
-    console.log(`Failed to check if player ${id} was known: ${e}`)
-  }
-}
+    // Update URL
+    PathParser.navigateToProfile(parsed.kind, parsed.target);
 
-async function resolveVanity(id) {
-  try {
-    const resp = await fetch(`${API_BASE}/resolve-vanity?id=${encodeURIComponent(id)}`, { method: "GET", credentials: "same-origin" });
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({ error: resp.statusText }));
-      throw new Error(err.error || err.message || `HTTP ${resp.status}`);
-    }
-    const body = await resp.json();
-    if (body.steamid64) return body;
-    throw new Error(body.error || "No steamid64 in response");
-  } catch (e) {
-    // handle error (show to user / fallback)
-    console.error("Resolve failed", e);
-    throw e;
-  }
-}
+    // Update the input to show clean format
+    DOM.pathInput.value = parsed.target;
 
-function buildTargets(parsed, steamid64) {
-  targetsList.innerHTML = "";
-  CONFIG.forEach((t) => {
-    const el = document.createElement("div");
-    el.className = "target";
-    const left = document.createElement("div");
-    left.className = "t-left";
+    // Clear previous logs (optional - remove if you want to keep history)
+    Logger.clear();
+
+    // Reload the profile
+    await App.loadProfile(parsed);
+  },
+};
+
+// UI Builder
+const UIBuilder = {
+  createFaviconElement(target) {
     const icon = document.createElement("div");
     icon.className = "t-icon";
 
-    // create image for favicon
-    if (t.favicon) {
+    if (target.favicon) {
       const img = document.createElement("img");
-      img.alt = t.title;
-      img.src = t.favicon;
-      img.style.width = "24px";
-      img.style.height = "24px";
-      img.style.objectFit = "contain";
-      img.style.borderRadius = "4px";
-      // fallback to initials if favicon fails
+      img.alt = target.title;
+      img.src = target.favicon;
+      Object.assign(img.style, {
+        width: "24px",
+        height: "24px",
+        objectFit: "contain",
+        borderRadius: "4px",
+      });
+
       img.onerror = () => {
-        if (img && img.parentNode) img.parentNode.removeChild(img);
-        icon.textContent = t.title
-          .split(/\s/)
-          .map((s) => s[0])
-          .slice(0, 2)
-          .join("")
-          .toUpperCase();
+        img.remove();
+        icon.textContent = Utils.getInitials(target.title);
       };
+
       icon.appendChild(img);
     } else {
-      icon.textContent = t.title
-        .split(/\s/)
-        .map((s) => s[0])
-        .slice(0, 2)
-        .join("")
-        .toUpperCase();
+      icon.textContent = Utils.getInitials(target.title);
     }
 
+    return icon;
+  },
+
+  createInfoElement(target) {
     const info = document.createElement("div");
+    
     const title = document.createElement("div");
     title.className = "t-title";
-    title.textContent = t.title;
+    title.textContent = target.title;
+
     const desc = document.createElement("div");
     desc.className = "t-desc";
-    //desc.textContent = t.desc;
-    desc.innerHTML = t.desc;
-    info.appendChild(title);
-    info.appendChild(desc);
-    left.appendChild(icon);
-    left.appendChild(info);
+    desc.innerHTML = target.desc;
 
+    info.append(title, desc);
+    return { info, desc };
+  },
+
+  createActionButtons(target, parsed, steamid64) {
     const actions = document.createElement("div");
     actions.className = "t-actions";
 
     const openBtn = document.createElement("button");
     openBtn.className = "btn small";
     openBtn.textContent = "Open";
-    openBtn.onclick = () => {
-      const url = buildUrl(t, parsed, steamid64);
-      if (!url) return;
-      if (t.open === "same") window.location.href = url;
-      else window.open(url, "_blank", "noopener");
-    };
+    openBtn.onclick = () => this.handleOpen(target, parsed, steamid64);
 
     const copyBtn = document.createElement("button");
     copyBtn.className = "btn ghost small";
     copyBtn.textContent = "Copy URL";
-    copyBtn.onclick = async () => {
-      const url = buildUrl(t, parsed, steamid64);
-      if (!url) return;
-      try {
-        await navigator.clipboard.writeText(url);
-        logLine("Copied to clipboard", "ok");
-      } catch (e) {
-        logLine("Clipboard write failed", "error");
-      }
-    };
+    copyBtn.onclick = () => this.handleCopy(target, parsed, steamid64);
 
-    actions.appendChild(openBtn);
-    actions.appendChild(copyBtn);
+    actions.append(openBtn, copyBtn);
+    return { actions, openBtn, copyBtn };
+  },
 
-    let disabled = false;
-    if (!parsed) disabled = true;
-    if (t.needs64 && !steamid64) disabled = true;
-    if (disabled) {
-      openBtn.disabled = true;
-      copyBtn.disabled = true;
-      openBtn.className = openBtn.className + " " + "disabled";
-      copyBtn.className = copyBtn.className + " " + "disabled";
-      openBtn.style.opacity = "0.45";
-      copyBtn.style.opacity = "0.45";
-      desc.textContent += " â€” unavailable";
+  async handleOpen(target, parsed, steamid64) {
+    const url = URLBuilder.build(target, parsed, steamid64);
+    if (!url) return;
+
+    if (target.open === "same") {
+      window.location.href = url;
+    } else {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  },
+
+  async handleCopy(target, parsed, steamid64) {
+    const url = URLBuilder.build(target, parsed, steamid64);
+    if (!url) return;
+
+    const success = await Utils.copyToClipboard(url);
+    if (success) {
+      Logger.success("Copied to clipboard");
+    } else {
+      Logger.error("Clipboard write failed");
+    }
+  },
+
+  buildTargetElement(target, parsed, steamid64) {
+    const container = document.createElement("div");
+    container.className = "target";
+
+    const left = document.createElement("div");
+    left.className = "t-left";
+
+    const icon = this.createFaviconElement(target);
+    const { info, desc } = this.createInfoElement(target);
+    const { actions, openBtn, copyBtn } = this.createActionButtons(
+      target,
+      parsed,
+      steamid64
+    );
+
+    left.append(icon, info);
+    container.append(left, actions);
+
+    // Handle disabled state
+    const isDisabled = !parsed || (target.needs64 && !steamid64);
+    if (isDisabled) {
+      [openBtn, copyBtn].forEach((btn) => {
+        btn.disabled = true;
+        btn.className += " disabled";
+        btn.style.opacity = "0.45";
+      });
+      desc.textContent += " — unavailable";
     }
 
-    el.appendChild(left);
-    el.appendChild(actions);
-    targetsList.appendChild(el);
-  });
-}
+    return container;
+  },
 
-function buildUrl(t, parsed, steamid64) {
-  if (!parsed) return null;
-  if (t.needs64) {
-    if (!steamid64) return null;
-    return t.url_64.replace("{steamid64}", encodeURIComponent(steamid64));
-  } else {
-    // use parsed.raw so "/id/vanity" or "/profiles/steamid64" is preserved
-    const raw = parsed.raw; // e.g. "id/valor-cant" or "profiles/123..."
-    const segments = raw.split("/").map((s) => encodeURIComponent(s));
-    const safePath = segments.join("/");
-    return (t.url_vanity || t.url_64)
-      .replace("{path}", safePath)
-      .replace("{steamid64}", encodeURIComponent(steamid64 || ""));
-  }
-}
+  renderTargets(parsed, steamid64) {
+    if (!DOM.targetsList) return;
 
-init();
+    DOM.targetsList.innerHTML = "";
+    
+    const fragment = document.createDocumentFragment();
+    CONFIG.forEach((target) => {
+      const element = this.buildTargetElement(target, parsed, steamid64);
+      fragment.appendChild(element);
+    });
+
+    DOM.targetsList.appendChild(fragment);
+  },
+};
+
+// Main Application
+const App = {
+  async initialize() {
+    DOM.init();
+    InputHandler.init();
+
+    const parsed = PathParser.parse();
+
+    if (!parsed) {
+      DOM.pathInput.value = "";
+      Logger.info(
+        "Enter a Steam profile URL, vanity ID, or SteamID64 and press Enter"
+      );
+      UIBuilder.renderTargets(null, null);
+      return;
+    }
+
+    DOM.pathInput.value = parsed.target;
+    await this.loadProfile(parsed);
+  },
+
+  async loadProfile(parsed) {
+    if (!parsed) {
+      Logger.error("Invalid profile data");
+      return;
+    }
+
+    const steamid64 = await this.resolveSteamId(parsed);
+    
+    UIBuilder.renderTargets(parsed, steamid64);
+
+    // Fetch additional data in parallel
+    await Promise.allSettled([
+      API.fetchLeetifyStats(steamid64),
+      API.fetchKnownPlayerInfo(steamid64),
+      API.updateVisitorCount(),
+    ]);
+  },
+
+  async resolveSteamId(parsed) {
+    if (parsed.kind === "id") {
+      try {
+        return await API.resolveVanity(parsed.target);
+      } catch (error) {
+        return null;
+      }
+    }
+
+    if (parsed.kind === "profiles") {
+      Logger.success(`Detected steamid64: ${parsed.target}`);
+      return parsed.target;
+    }
+
+    Logger.success(
+      `Unknown path kind "${parsed.kind}". Attempting to treat as raw path.`
+    );
+    return null;
+  },
+};
+
+// Initialize on DOM ready
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => App.initialize());
+} else {
+  App.initialize();
+}
