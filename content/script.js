@@ -469,7 +469,7 @@ const URLBuilder = {
       );
     }
 
-    const segments = null;
+    let segments = null;
     if (parsed.raw) {
       segments = parsed.raw.split("/").map(encodeURIComponent);
     }
