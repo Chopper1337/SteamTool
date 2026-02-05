@@ -460,30 +460,21 @@ const API = {
 const URLBuilder = {
   build(target, parsed, steamid64) {
     if (!parsed) return null;
-
-    if (target.needs64) {
+    if (target?.needs64) {
       if (!steamid64) return null;
-      return target.url_64.replace(
-        "{steamid64}",
-        encodeURIComponent(steamid64)
-      );
+      return target.url_64.replace("{steamid64}", encodeURIComponent(steamid64));
     }
 
-    let segments = null;
-    if (parsed.raw) {
-      segments = parsed.raw.split("/").map(encodeURIComponent);
-    }
-    else {
-      segments = `${parsed.kind}/${parsed.target}`.split("/").map(encodeURIComponent);
-    }
+    // parsed.kind is either "id" (vanity) or "profiles" (steamid64) 
+    const path = `${encodeURIComponent(parsed.kind)}/${encodeURIComponent(parsed.target)}`;
+    const template = target?.url_vanity || target?.url_64;
+    if (!template) return null;
 
-    const safePath = segments.join("/");
-    
-    return (target.url_vanity || target.url_64)
-      .replace("{path}", safePath)
+    return template
+      .replace("{path}", path)
       .replace("{steamid64}", encodeURIComponent(steamid64 || ""));
-  },
-};
+    },
+  };
 
 // Input Handler
 const InputHandler = {
