@@ -410,7 +410,7 @@ const API = {
 
     try {
       const data = await this.fetchJSON(
-        `${API_BASE}/known?id=${encodeURIComponent(steamid64)}`
+        `/known?id=${encodeURIComponent(steamid64)}`
       );
 
       if (!data) return null;

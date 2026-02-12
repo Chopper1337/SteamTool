@@ -66,5 +66,15 @@
       "https://www.twitch.tv/scouter",
       "http://youtube.com/@scouter"
     ]
+  },
+  {
+    "ids" : [ "76561198306735193"],
+    "name": "Vehqo",
+    "info": [
+    "Official SteamTool QA tester"
+    ],
+    "links": [
+      "x.com/vehqo"
+    ]
   }
 ]
