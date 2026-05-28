@@ -31,16 +31,6 @@ const CONFIG = [
     open: "new",
   },
   {
-    id: "catstats",
-    title: "catstats.gg",
-    desc: "Steam, FACEIT and Leetify stats.<br>Trust rating and community reputation.",
-    url_vanity: null,
-    url_64: "https://catstats.gg/player/{steamid64}",
-    needs64: false,
-    favicon: "https://catstats.gg/favicon.ico",
-    open: "new",
-  },
-  {
     id: "skinflow",
     title: "CS2Tracker",
     desc: "Steam, FACEIT and Leetify stats.<br>Risk estimation and Inventory viewer.",
