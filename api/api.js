@@ -35,6 +35,15 @@ const RESOLVER_TIMEOUT_MS = Number(process.env.RESOLVER_TIMEOUT_MS || 4000);
 const RESOLVE_BUDGET_MS = Number(process.env.RESOLVE_BUDGET_MS || 15000);
 const USER_AGENT = process.env.USER_AGENT ||
   "SteamTool/1.0 (+https://github.com/Chopper1337/SteamTool)";
+
+// If a resolver has not answered within this, start the next one alongside it
+// instead of waiting out its slice. Set high enough that a healthy tier-1
+// resolver (~370ms measured) never triggers it, so the common case sends
+// exactly one request. Set to 0 to disable hedging entirely.
+const HEDGE_AFTER_MS = Number(process.env.HEDGE_AFTER_MS ?? 1000);
+// Ceiling on concurrent outbound requests for a single lookup.
+const MAX_INFLIGHT = Math.max(1, Number(process.env.MAX_INFLIGHT || 2));
+const HEDGE = Symbol("hedge");
 const TRIM_EVERY = 500;
 const STATS_TOKEN = process.env.STATS_TOKEN || "";
 
@@ -168,6 +177,29 @@ function loadData() {
   KNOWN_INDEX = index;
 
   return { resolvers: RESOLVERS.length, known: KNOWN_INDEX.size };
+}
+
+// Order resolvers by tier (fastest, most general first), shuffling within each
+// tier so load still spreads instead of always hitting the same one first.
+// Untiered entries sort last.
+function orderResolvers(list) {
+  const byTier = new Map();
+  for (const r of list) {
+    const tier = Number.isFinite(r.tier) ? r.tier : 99;
+    if (!byTier.has(tier)) byTier.set(tier, []);
+    byTier.get(tier).push(r);
+  }
+
+  const ordered = [];
+  for (const tier of [...byTier.keys()].sort((a, b) => a - b)) {
+    const group = byTier.get(tier);
+    for (let i = group.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [group[i], group[j]] = [group[j], group[i]];
+    }
+    ordered.push(...group);
+  }
+  return ordered;
 }
 
 // ---------------------------------------------------------------- visitors
@@ -332,9 +364,13 @@ app.get("/api/resolve-vanity", async (req, res) => {
     return res.status(500).json({ error: "no resolvers configured" });
   }
 
-  // Randomise the starting point to spread load across resolvers.
-  const start = Math.floor(Math.random() * RESOLVERS.length);
-  const ordered = RESOLVERS.map((_, i) => RESOLVERS[(start + i) % RESOLVERS.length]);
+  // Try the fast, general-purpose resolvers first, shuffling within each tier
+  // so load still spreads rather than always landing on one of them.
+  //
+  // A flat random start meant the slowest resolver fronted one lookup in five,
+  // which dominated the average for no benefit. Tier order is set from measured
+  // medians; see resolvers.json.
+  const ordered = orderResolvers(RESOLVERS);
 
   // Two limits, not one. Each resolver gets its own slice so that a single slow
   // one cannot starve the rest, and an overall budget still bounds how long the
@@ -351,12 +387,11 @@ app.get("/api/resolve-vanity", async (req, res) => {
   const startedAt = Date.now();
   const remainingMs = () => RESOLVE_BUDGET_MS - (Date.now() - startedAt);
 
-  const attempt = async (r) => {
+  const attempt = async (r, control) => {
     // Never let one resolver run longer than its slice, nor past the budget.
     const slice = Math.min(RESOLVER_TIMEOUT_MS, remainingMs());
     if (slice <= 0) throw new Error("budget exhausted");
 
-    const control = new AbortController();
     const sliceTimer = setTimeout(() => control.abort(), slice);
 
     let resp;
@@ -402,19 +437,69 @@ app.get("/api/resolve-vanity", async (req, res) => {
 
   const errors = [];
 
+  // Hedging: if a resolver has not answered within HEDGE_AFTER_MS, start the
+  // next one alongside it rather than waiting out its full slice, and take
+  // whichever replies first. Capped at MAX_INFLIGHT so this stays a hedge and
+  // never becomes a fan-out to every resolver on every lookup.
+  //
+  // The healthy case is unaffected: a tier-1 resolver answers in ~370ms, well
+  // inside the threshold, so no second request is ever sent. This exists for
+  // when a resolver goes bad, which is what steamid.co did.
+  let next = 0;
+  const running = new Set();
+
+  const startNext = () => {
+    if (next >= ordered.length || remainingMs() <= 0) return false;
+    const r = ordered[next++];
+    const control = new AbortController();
+    const entry = { r, abort: () => control.abort() };
+    entry.promise = attempt(r, control).then(
+      (value) => { entry.value = value; return entry; },
+      (error) => { entry.error = error; return entry; }
+    );
+    running.add(entry);
+    return true;
+  };
+
   try {
-    for (const r of ordered) {
-      if (remainingMs() <= 0) {
-        errors.push(`(budget exhausted after ${errors.length}/${ordered.length})`);
-        break;
-      }
+    startNext();
+
+    while (running.size > 0) {
+      let hedgeTimer;
+      const hedge = new Promise((resolve) => {
+        hedgeTimer = setTimeout(() => resolve(HEDGE), Math.max(0, Math.min(HEDGE_AFTER_MS, remainingMs())));
+      });
+
+      let settled;
       try {
-        const result = await attempt(r);
-        logSteamTool("Resolve vanity", id, ` to ${result.steamid64}`);
-        return res.json(result);
-      } catch (err) {
-        errors.push(`${r.name}: ${(err && err.message) || String(err)}`);
+        settled = await Promise.race([...[...running].map((e) => e.promise), hedge]);
+      } finally {
+        clearTimeout(hedgeTimer);
       }
+
+      if (settled === HEDGE) {
+        // Nothing has answered yet. Add one more, or wait if we are at the cap
+        // or out of resolvers (the per-resolver slice still bounds the wait).
+        if (running.size < MAX_INFLIGHT) startNext();
+        if (remainingMs() <= 0) break;
+        continue;
+      }
+
+      running.delete(settled);
+
+      if (settled.value) {
+        // Abandon anything still in flight; we have an answer.
+        for (const e of running) e.abort();
+        logSteamTool("Resolve vanity", id, ` to ${settled.value.steamid64}`);
+        return res.json(settled.value);
+      }
+
+      errors.push(`${settled.r.name}: ${(settled.error && settled.error.message) || String(settled.error)}`);
+      startNext();
+    }
+
+    if (remainingMs() <= 0) {
+      errors.push(`(budget exhausted after ${errors.length}/${ordered.length})`);
     }
 
     // Detail goes to the log, not to the client - the response used to name

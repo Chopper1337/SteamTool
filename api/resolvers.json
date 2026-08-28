@@ -2,26 +2,31 @@
   {
     "name": "cs2ws.com",
     "urlTemplate": "https://cs2ws.com/api/search?q={id}",
-    "responsePath": "steam_id"
+    "responsePath": "steam_id",
+    "tier": 1
   },
   {
     "name": "cswat.ch",
     "urlTemplate": "https://cswat.ch/api/resolveVanity?vanityUrl={id}",
-    "responsePath": "steamId"
-  },
-  {
-    "name": "pricempire.com",
-    "urlTemplate": "https://pricempire.com/api-data/v1/lookup?url={id}",
-    "responsePath": "ids.steam64Id"
-  },
-  {
-    "name": "csgrind.com",
-    "urlTemplate": "https://csgrind.com/steam64?vanity={id}",
-    "responsePath": "steam64"
+    "responsePath": "steamId",
+    "tier": 1
   },
   {
     "name": "faceithunter.com",
     "urlTemplate": "https://faceithunter.com/api/faceit/player/{id}/cs2",
-    "responsePath": "steam_id_64"
+    "responsePath": "steam_id_64",
+    "tier": 2
+  },
+  {
+    "name": "pricempire.com",
+    "urlTemplate": "https://pricempire.com/api-data/v1/lookup?url={id}",
+    "responsePath": "ids.steam64Id",
+    "tier": 2
+  },
+  {
+    "name": "csgrind.com",
+    "urlTemplate": "https://csgrind.com/steam64?vanity={id}",
+    "responsePath": "steam64",
+    "tier": 3
   }
 ]

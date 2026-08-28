@@ -30,6 +30,16 @@
     "open": "new"
   },
   {
+    "id": "cs2ws",
+    "title": "CS2WS.com",
+    "desc": "Leetify stats, ranks and match history.<br>Account age, hours and map breakdown.",
+    "url_vanity": "https://cs2ws.com/{path}",
+    "url_64": "https://cs2ws.com/{path}",
+    "needs64": false,
+    "favicon": "https://cs2ws.com/site/favicon.png",
+    "open": "new"
+  },
+  {
     "id": "CSStats.gg",
     "title": "CSStats.gg",
     "desc": "CS stats, HLTV rating and FACEIT.",
