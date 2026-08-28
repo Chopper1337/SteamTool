@@ -21,6 +21,16 @@ const CONFIG = [
     open: "new",
   },
   {
+    id: "cstracker",
+    title: "cstracker.gg",
+    desc: "Steam, FACEIT, and player stats.<br>Chat logs.",
+    url_vanity: "https://steamcommunity.now/{path}",
+    url_64: "https://steamcommunity.now/{path}",
+    needs64: false,
+    favicon: "",
+    open: "new",
+  },
+  {
     id: "CSStats.gg",
     title: "CSStats.gg",
     desc: "CS stats, HLTV rating and FACEIT.",
