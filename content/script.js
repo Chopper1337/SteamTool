@@ -27,7 +27,7 @@ const CONFIG = [
     url_vanity: "https://steamcommunity.now/{path}",
     url_64: "https://steamcommunity.now/{path}",
     needs64: false,
-    favicon: "",
+    favicon: "https://cstracker.gg/favicon.svg",
     open: "new",
   },
   {
