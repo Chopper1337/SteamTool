@@ -1,135 +1,242 @@
 const express = require("express");
-const bodyParser = require("body-parser");
+const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 
-require('dotenv').config();
+require("dotenv").config({ quiet: true });
 
 const app = express();
 const PORT = process.env.PORT;
 const HOST = process.env.HOST;
 
-const visitorCountPath = path.join(__dirname, "visitor_count.txt");
+// Number of reverse proxies in front of us. Without this, req.ip is the
+// proxy's address for every visitor, so any future rate limiting would treat
+// the whole internet as one client. Never set this to `true`, and never above
+// the real hop count: either lets a caller forge X-Forwarded-For.
+app.set("trust proxy", Number(process.env.TRUST_PROXY_HOPS || 0));
 
+// Mutable state lives here. Defaults to the app directory so a plain
+// `node api.js` keeps working; the systemd unit points it elsewhere.
+const STATE_DIR = process.env.STEAMTOOL_STATE || __dirname;
+
+const visitorCountPath = path.join(STATE_DIR, "visitor_count.txt");
+const logPath = path.join(STATE_DIR, "api.log");
+
+// Read-only data, always alongside the code so a `git pull` updates it.
 const resolversPath = path.join(__dirname, "resolvers.json");
-const RESOLVERS = JSON.parse(fs.readFileSync(resolversPath, "utf-8"));
-
 const knownPath = path.join(__dirname, "known.json");
-const KNOWN = JSON.parse(fs.readFileSync(knownPath, "utf-8"));
 
-// Middleware
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+const MAX_LOG_LINES = Number(process.env.MAX_LOG_LINES || 5000);
+const TRIM_EVERY = 500;
+const STATS_TOKEN = process.env.STATS_TOKEN || "";
 
-// CORS headers
+// CORS. The frontend is same-origin through the proxy, so this only needs to cover
+// anything you deliberately call from elsewhere. Set STEAMTOOL_ORIGIN to lock
+// it down; the wildcard remains the default only for backwards compatibility.
+const ALLOWED_ORIGIN = process.env.STEAMTOOL_ORIGIN || "*";
+
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*"); // Allow all origins
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  res.header("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
+  res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, X-Stats-Token");
+  if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
 
-// helper: safe get by path like "response.steamID64" or "response.ids.steam64Id"
-function getByPath(obj, path) {
-  if (!obj || !path) return undefined;
-  const parts = path.split(".");
-  let cur = obj;
-  for (const p of parts) {
-    if (cur == null) return undefined;
-    cur = cur[p];
+// ---------------------------------------------------------------- utilities
+
+function writeFileAtomic(file, contents) {
+  const tmp = `${file}.tmp`;
+  fs.writeFileSync(tmp, contents, "utf8");
+  fs.renameSync(tmp, file);
+}
+
+// A hand-edited data file must never be able to take the API down. Log the
+// problem and carry on with whatever we can still serve.
+function readJSONSafe(file, fallback) {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(file, "utf-8"));
+    return Array.isArray(parsed) ? parsed : fallback;
+  } catch (err) {
+    console.error(`Failed to load ${path.basename(file)}: ${err.message}`);
+    return fallback;
   }
-  return cur;
 }
 
-function fetchWithTimeout(url, opts = {}, timeout = 5000) {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeout);
-  return fetch(url, { ...opts, signal: controller.signal }).finally(() => clearTimeout(id));
+function stamp() {
+  return new Date().toISOString().replace("T", " ");
 }
 
+function safeEqual(a, b) {
+  const ab = Buffer.from(String(a));
+  const bb = Buffer.from(String(b));
+  if (ab.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ab, bb);
+}
+
+// ---------------------------------------------------------------- state dir
+
+function ensureState() {
+  fs.mkdirSync(STATE_DIR, { recursive: true });
+
+  // One-time migration for installs that kept state next to the code.
+  // Copies rather than moves, so the original stays as a backup.
+  for (const name of ["visitor_count.txt", "api.log"]) {
+    const dest = path.join(STATE_DIR, name);
+    const legacy = path.join(__dirname, name);
+    if (legacy === dest || fs.existsSync(dest) || !fs.existsSync(legacy)) continue;
+    fs.copyFileSync(legacy, dest);
+    console.log(`${stamp()} Migrated ${name} to ${STATE_DIR}`);
+  }
+
+  if (!fs.existsSync(visitorCountPath)) fs.writeFileSync(visitorCountPath, "", "utf-8");
+}
+
+// -------------------------------------------------------------------- logs
+
+// Served from memory; the file is for durability across restarts.
+let logRing = [];
+let appendsSinceTrim = 0;
+
+function loadLogRing() {
+  try {
+    if (!fs.existsSync(logPath)) return [];
+    const raw = fs.readFileSync(logPath, "utf8").trim();
+    if (!raw) return [];
+    const lines = raw.split("\n");
+    return lines.slice(-MAX_LOG_LINES);
+  } catch (err) {
+    console.error(`Failed to read api.log: ${err.message}`);
+    return [];
+  }
+}
+
+function appendLog(line) {
+  logRing.push(line);
+  if (logRing.length > MAX_LOG_LINES) {
+    logRing.splice(0, logRing.length - MAX_LOG_LINES);
+  }
+
+  try {
+    fs.appendFileSync(logPath, line + "\n", "utf8");
+    appendsSinceTrim += 1;
+    if (appendsSinceTrim >= TRIM_EVERY) {
+      writeFileAtomic(logPath, logRing.join("\n") + "\n");
+      appendsSinceTrim = 0;
+    }
+  } catch (err) {
+    console.error(`log append failed: ${err.message}`);
+  }
+}
+
+// Format:
+//   2026-08-27 20:35:20.323Z Resolve vanity request for Mariktatarik to 76561199020280862
 function logSteamTool(purpose, info, result) {
-  const now = new Date().toISOString().replace("T", " ");
-  console.log(`${now} ${purpose} request for ${info}${result}`);
+  const line = `${stamp()} ${purpose} request for ${info}${result}`;
+  console.log(line);
+  appendLog(line);
 }
 
-// Ensure file exists
-if (!fs.existsSync(visitorCountPath)) fs.writeFileSync(visitorCountPath, "", "utf-8");
+function logEvent(text) {
+  const line = `${stamp()} ${text}`;
+  console.log(line);
+  appendLog(line);
+}
+
+// -------------------------------------------------------------------- data
+
+let RESOLVERS = [];
+let KNOWN_INDEX = new Map();
+
+function loadData() {
+  RESOLVERS = readJSONSafe(resolversPath, []);
+
+  const known = readJSONSafe(knownPath, []);
+  const index = new Map();
+  for (const entry of known) {
+    if (!entry || !Array.isArray(entry.ids)) continue;
+    for (const id of entry.ids) index.set(String(id), entry);
+  }
+  KNOWN_INDEX = index;
+
+  return { resolvers: RESOLVERS.length, known: KNOWN_INDEX.size };
+}
+
+// ---------------------------------------------------------------- visitors
 
 function readAllCounts() {
   if (!fs.existsSync(visitorCountPath)) return [];
   const raw = fs.readFileSync(visitorCountPath, "utf8");
-  if (!raw) return [];
+  if (!raw.trim()) return [];
   return raw
     .trim()
     .split("\n")
     .map(line => {
-      const [date, cnt] = line.split(",").map(s => s.trim());
+      const [date, cnt] = line.split(",").map(s => (s || "").trim());
       return [date, Number.isNaN(Number(cnt)) ? 0 : Number(cnt)];
-    });
+    })
+    .filter(row => /^\d{4}-\d{2}-\d{2}$/.test(row[0]));
 }
 
 function writeAllCounts(rows) {
-  const out = rows.map(r => `${r[0]},${r[1]}`).join("\n");
-  fs.writeFileSync(visitorCountPath, out, "utf8");
+  writeFileAtomic(visitorCountPath, rows.map(r => `${r[0]},${r[1]}`).join("\n") + "\n");
+}
+
+function todayKey() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 function logVisitor() {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayKey();
   const rows = readAllCounts();
-  let updated = false;
 
-  // iterate from bottom to find today's row
-  for (let i = rows.length - 1; i >= 0; i--) {
-    if (rows[i][0] === today) {
-      rows[i][1] = rows[i][1] + 1;
-      updated = true;
-      break;
-    }
-  }
-
-  if (!updated) {
+  const existing = rows.find(r => r[0] === today);
+  if (existing) {
+    existing[1] += 1;
+  } else {
     rows.push([today, 1]);
   }
 
   writeAllCounts(rows);
-
-  // return today's count
-  const todays = rows.find(r => r[0] === today);
-  return todays ? todays[1] : 0;
+  return existing ? existing[1] : 1;
 }
 
+// ------------------------------------------------------------------ routes
+
+app.get("/api/health", (req, res) => {
+  res.json({
+    ok: true,
+    uptime: Math.round(process.uptime()),
+    resolvers: RESOLVERS.length,
+    known: KNOWN_INDEX.size,
+    logLines: logRing.length,
+  });
+});
+
 // GET /api/known -> return information for a known player
-app.get('/api/known', (req, res) => {
+app.get("/api/known", (req, res) => {
   const rawId = (req.query.id || "").toString();
   if (!rawId) return res.status(400).json({ error: "missing id query parameter" });
 
-  // Normalise: remove slashes and whitespace
-  const normalised = rawId.replace(/^\/+|\/+$/g, "").trim();
+  const normalised = rawId.trim().replace(/^\/+|\/+$/g, "").trim();
   if (!normalised) return res.status(400).json({ error: "invalid id" });
 
-  // Validate: must be 17 digits
   if (!/^\d{17}$/.test(normalised)) {
     return res.status(400).json({ error: "invalid id: must be 17 digits" });
   }
 
-  // Search for the ID in the `ids` array (now stored as strings)
-  const found = KNOWN.find(item => item.ids.includes(normalised));
+  const found = KNOWN_INDEX.get(normalised);
+  if (!found) return res.status(404).json({ error: "Not found" });
 
-  if (found) {
-    res.json(found);
-  } else {
-    res.status(404).json({ error: 'Not found' });
-  }
+  return res.json(found);
 });
 
-// GET /api/visitor-count -> return last line (most recent date & count) without incrementing
+// GET /api/visitor-count -> today's count (0 if nobody has visited yet today)
 app.get("/api/visitor-count", (req, res) => {
   try {
-    const rows = readAllCounts();
-    if (rows.length === 0) {
-      return res.json({ date: null, count: 0 });
-    }
-    const last = rows[rows.length - 1];
-    return res.json({ date: last[0], count: last[1] });
+    const today = todayKey();
+    const row = readAllCounts().find(r => r[0] === today);
+    return res.json({ date: today, count: row ? row[1] : 0 });
   } catch (err) {
     console.error("visitor count GET error:", err);
     return res.status(500).json({ error: "internal_server_error" });
@@ -140,12 +247,59 @@ app.get("/api/visitor-count", (req, res) => {
 app.post("/api/visitor-count", (req, res) => {
   try {
     const count = logVisitor();
-    const today = new Date().toISOString().slice(0, 10);
-    return res.json({ date: today, count });
+    return res.json({ date: todayKey(), count });
   } catch (err) {
     console.error("visitor count POST error:", err);
     return res.status(500).json({ error: "internal_server_error" });
   }
+});
+
+// GET /api/stats/visitors -> the full daily history, for the stats panel
+app.get("/api/stats/visitors", (req, res) => {
+  try {
+    const rows = readAllCounts().sort((a, b) => a[0].localeCompare(b[0]));
+    const today = todayKey();
+    return res.json({
+      days: rows.map(([date, count]) => ({ date, count })),
+      total: rows.reduce((sum, r) => sum + r[1], 0),
+      today: (rows.find(r => r[0] === today) || [null, 0])[1],
+    });
+  } catch (err) {
+    console.error("visitor stats error:", err);
+    return res.status(500).json({ error: "internal_server_error" });
+  }
+});
+
+// The log carries the vanity names and SteamID64s of everyone who has used the
+// tool, so it is not public. Set STATS_TOKEN to enable it.
+function requireStatsToken(req, res, next) {
+  if (!STATS_TOKEN) {
+    return res.status(503).json({
+      error: "stats_token_not_configured",
+      message: "Set STATS_TOKEN in the API environment to enable log access.",
+    });
+  }
+
+  const supplied = req.get("x-stats-token") || req.query.token || "";
+  if (!supplied || !safeEqual(supplied, STATS_TOKEN)) {
+    return res.status(401).json({ error: "unauthorized" });
+  }
+
+  next();
+}
+
+// GET /api/stats/logs?limit=200 -> log tail for the site's Stats panel
+app.get("/api/stats/logs", requireStatsToken, (req, res) => {
+  const requested = Number(req.query.limit);
+  const limit = Number.isFinite(requested)
+    ? Math.min(Math.max(Math.trunc(requested), 1), MAX_LOG_LINES)
+    : 200;
+
+  return res.json({
+    lines: logRing.slice(-limit),
+    total: logRing.length,
+    capacity: MAX_LOG_LINES,
+  });
 });
 
 // GET /api/resolve-vanity?id={vanity}
@@ -153,90 +307,134 @@ app.get("/api/resolve-vanity", async (req, res) => {
   const rawId = (req.query.id || "").toString();
   if (!rawId) return res.status(400).json({ error: "missing id query parameter" });
 
-  // Normalise: remove leading/trailing slashes and whitespace
-  const normalised = rawId.replace(/^\/+|\/+$/g, "").trim();
-
-  // Security validation: allow only alphanumerics
-  // Reject empty after normalisation
+  const normalised = rawId.trim().replace(/^\/+|\/+$/g, "").trim();
   if (!normalised) return res.status(400).json({ error: "invalid id" });
 
-  // Only allow ASCII letters and digits
   if (!/^[A-Za-z0-9_-]+$/.test(normalised)) {
     return res.status(400).json({ error: "invalid id: only A-Z, a-z, 0-9, _, - allowed" });
   }
 
-  if(!/^.{3,32}$/.test(normalised)) { 
-    return res.status(400).json({ error: "invalid id: cannot be greater than 32 characters" });
+  if (!/^.{3,32}$/.test(normalised)) {
+    return res.status(400).json({ error: "invalid id: must be 3 to 32 characters" });
   }
 
-  const id = normalised; // safe to use from here on
+  const id = normalised;
 
-  const resolvers = RESOLVERS;
-  if (!Array.isArray(resolvers) || resolvers.length === 0) {
+  if (RESOLVERS.length === 0) {
     return res.status(500).json({ error: "no resolvers configured" });
   }
 
-  // Randomise start index to distribute load, but keep order otherwise (wrap around)
-  const start = Math.floor(Math.random() * resolvers.length);
-  const ordered = [];
-  for (let i = 0; i < resolvers.length; i++) {
-    ordered.push(resolvers[(start + i) % resolvers.length]);
-  }
+  // Randomise the starting point to spread load across resolvers.
+  const start = Math.floor(Math.random() * RESOLVERS.length);
+  const ordered = RESOLVERS.map((_, i) => RESOLVERS[(start + i) % RESOLVERS.length]);
+
+  // One budget for the whole request. Previously each resolver got its own 5s,
+  // so five dead resolvers meant a 25s wait before the browser saw anything.
+  //
+  // Deliberately still sequential rather than a Promise.any race: racing would
+  // answer marginally faster but would send five outbound requests on every
+  // single lookup instead of usually one, which is exactly the amplification
+  // that gets our IP banned by the resolvers we depend on.
+  const deadline = new AbortController();
+  const deadlineTimer = setTimeout(() => deadline.abort(), 6000);
+
+  const attempt = async (r) => {
+    const url = r.urlTemplate.replace("{id}", encodeURIComponent(id));
+    const resp = await fetch(url, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      signal: deadline.signal,
+    });
+
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+    const text = await resp.text();
+
+    let body = null;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      // Some resolvers answer with a bare number rather than JSON.
+      if (/^\d+$/.test(text.trim())) return { steamid64: text.trim(), source: r.name };
+      throw new Error("invalid-json");
+    }
+
+    const found = r.responsePath
+      .split(".")
+      .reduce((cur, part) => (cur == null ? undefined : cur[part]), body);
+
+    if (typeof found === "string" && /^\d+$/.test(found)) {
+      return { steamid64: found, source: r.name };
+    }
+    if (typeof found === "number" && Number.isInteger(found)) {
+      return { steamid64: String(found), source: r.name };
+    }
+
+    throw new Error("steamid64-not-found");
+  };
 
   const errors = [];
 
   try {
     for (const r of ordered) {
+      if (deadline.signal.aborted) break;
       try {
-        const url = r.urlTemplate.replace("{id}", encodeURIComponent(id));
-        const resp = await fetchWithTimeout(
-          url,
-          { method: "GET", headers: { Accept: "application/json" } },
-          5000
-        );
-
-        if (!resp.ok) {
-          throw new Error(`HTTP ${resp.status}`);
-        }
-
-        let body;
-        try {
-          body = await resp.json();
-        } catch (e) {
-          const txt = await resp.text();
-          if (/^\d+$/.test(txt.trim())) {
-            const steamid = txt.trim();
-            logSteamTool("Resolve vanity", id, ` to ${steamid}`);
-            return res.json({ steamid64: steamid, source: r.name });
-          }
-          throw new Error("invalid-json");
-        }
-
-        const found = getByPath(body, r.responsePath);
-        if (found && typeof found === "string" && /^\d+$/.test(found)) {
-          logSteamTool("Resolve vanity", id, ` to ${found}`);
-          return res.json({ steamid64: found, source: r.name });
-        }
-        if (found && typeof found === "number" && Number.isInteger(found)) {
-          const steamid = String(found);
-          logSteamTool("Resolve vanity", id, ` to ${steamid}`);
-          return res.json({ steamid64: steamid, source: r.name });
-        }
-
-        throw new Error("steamid64-not-found");
+        const result = await attempt(r);
+        logSteamTool("Resolve vanity", id, ` to ${result.steamid64}`);
+        return res.json(result);
       } catch (err) {
-        errors.push({ source: r.name, error: err.message || String(err) });
-        // continue to next resolver
+        errors.push(`${r.name}: ${(err && err.message) || String(err)}`);
       }
     }
 
-    // none succeeded
-    return res.status(502).json({ error: "no resolver succeeded", details: errors });
+    // Detail goes to the log, not to the client - the response used to name
+    // every third-party resolver and how it was failing.
+    logEvent(`Resolve vanity failed for ${id} (${errors.join("; ")})`);
+    return res.status(502).json({ error: "no resolver succeeded" });
   } catch (err) {
-    return res.status(500).json({ error: "internal", message: err.message || String(err) });
+    console.error("resolve-vanity error:", err);
+    return res.status(500).json({ error: "internal_server_error" });
+  } finally {
+    clearTimeout(deadlineTimer);
   }
 });
 
-app.listen(PORT, HOST, () => {
-  console.log(`API is running on http://${HOST}:${PORT}`);
+// ------------------------------------------------------------------ startup
+
+ensureState();
+logRing = loadLogRing();
+const loaded = loadData();
+
+const server = app.listen(PORT, HOST, () => {
+  logEvent(`API started on http://${HOST}:${PORT} (${loaded.resolvers} resolvers, ${loaded.known} known players)`);
+  if (!STATS_TOKEN) {
+    console.warn("STATS_TOKEN is not set - /api/stats/logs is disabled.");
+  }
 });
+
+// systemctl reload -> re-read the hand-edited data files without dropping
+// connections. This replaces the accidental hot-reload nodemon was providing.
+process.on("SIGHUP", () => {
+  const counts = loadData();
+  logEvent(`Reloaded data files (${counts.resolvers} resolvers, ${counts.known} known players)`);
+});
+
+// systemd sends SIGTERM and waits TimeoutStopSec before SIGKILL. Without this,
+// a restart severs in-flight requests, including a resolve mid-fan-out.
+let shuttingDown = false;
+function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  logEvent(`Received ${signal}, draining connections`);
+
+  server.close(() => {
+    logEvent("Shutdown complete");
+    process.exit(0);
+  });
+
+  // Don't hang forever on a wedged socket.
+  setTimeout(() => process.exit(0), 8000).unref();
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));

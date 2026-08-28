@@ -1,0 +1,95 @@
+# SteamTool API — systemd unit.
+#
+#   cp deploy/steamtool-api.service /etc/systemd/system/
+#   systemctl daemon-reload
+#   systemctl enable --now steamtool-api
+#
+# Host-specific values (bind address, port, secrets) belong in the
+# EnvironmentFile below, not in this file — see deploy/README.md.
+
+[Unit]
+Description=SteamTool API
+Documentation=https://github.com/Chopper1337/SteamTool
+After=network-online.target
+Wants=network-online.target
+
+# NB: these belong in [Unit], not [Service]. If a data file is unparseable the
+# API still starts (it logs and continues), but should anything else make the
+# process exit immediately, this stops it flapping and parks it in `failed`.
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=exec
+
+# Adjust to wherever the repository is checked out.
+#
+# With DynamicUser=yes the service runs as a generated UID, so it must be able
+# to traverse every directory down to the checkout. Home directory modes vary
+# by distribution and by when the account was made, so check rather than
+# assume:  stat -c '%A %n' ~
+#
+#   drwxr-xr-x  world-traversable — a checkout under /home works as-is
+#   drwxr-x---  group only        — add SupplementaryGroups= for the owning group
+#   drwx------  owner only        — the service cannot reach it at all
+#
+# These are plain POSIX permissions, applied before ProtectHome= is considered;
+# no unit setting overrides them. If the checkout is not reachable, either move
+# it somewhere world-traversable such as /opt or /srv (recommended, keeps the
+# dynamic user), or replace DynamicUser=yes with User=/Group= for the owning
+# account and relax ProtectHome=true to read-only — simpler, but the service
+# then runs with that account's full access.
+WorkingDirectory=/opt/steamtool/api
+
+# Absolute path deliberately: units do not inherit your login PATH, so a bare
+# `node` fails outright under nvm/fnm/asdf, and a version-manager switch would
+# silently change which runtime the service runs on.
+# Find yours with: readlink -f "$(which node)"
+ExecStart=/usr/bin/node api.js
+
+# `systemctl reload steamtool-api` re-reads known.json and resolvers.json
+# without restarting or dropping a connection.
+ExecReload=/bin/kill -HUP $MAINPID
+
+Environment=NODE_ENV=production
+
+# HOST, PORT, STATS_TOKEN and TRUST_PROXY_HOPS come from here so that nothing
+# host-specific has to live in version control. Create it with 0600
+# permissions; see api/.env.example for the full list of variables.
+EnvironmentFile=/etc/steamtool/api.env
+
+# Resolves to /var/lib/steamtool, created and chowned automatically. Keeps
+# visitor_count.txt and api.log out of the git checkout. StateDirectory is
+# exempt from ProtectSystem below.
+StateDirectory=steamtool
+Environment=STEAMTOOL_STATE=/var/lib/steamtool
+
+# Creates and tears down its own unprivileged account; owns nothing on disk
+# except StateDirectory. Avoids a useradd step entirely.
+DynamicUser=yes
+
+Restart=on-failure
+RestartSec=2s
+
+# The API drains on SIGTERM via server.close(); without that handler this
+# would just be a slower SIGKILL.
+KillSignal=SIGTERM
+TimeoutStopSec=10s
+
+# Hardening. Confirm it actually applied: systemd-analyze security steamtool-api
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_INET AF_INET6
+MemoryMax=256M
+
+[Install]
+WantedBy=multi-user.target

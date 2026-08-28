@@ -298,3 +298,197 @@ a.link {
     opacity: 1;
   }
 }
+
+/* ---------------------------------------------------------------- stats ---
+   Visitor counts and the API log tail. Uses the existing palette: bars are
+   a single accent hue (magnitude, one series - no legend needed), today is
+   emphasised, and only the peak and today are direct-labelled. */
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(4, 8, 18, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  overflow: auto;
+}
+
+.modal[hidden] {
+  display: none;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 920px;
+  background: linear-gradient(180deg, var(--card), #071226);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 18px 60px rgba(2, 6, 23, 0.7);
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.modal-body {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.modal-body .box {
+  flex: 1 1 380px;
+  min-width: 0;
+}
+
+/* chart */
+.sc-wrap {
+  position: relative;
+  margin-top: 12px;
+}
+
+.sc-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 140px;
+  padding: 14px 8px 0;
+  background: var(--bgd);
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+.sc-col {
+  flex: 1 1 0;
+  min-width: 6px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: stretch;
+  gap: 3px;
+}
+
+.sc-bar {
+  background: var(--accent);
+  border-radius: 4px 4px 0 0;
+  opacity: 0.65;
+  transition: opacity 120ms ease;
+  cursor: default;
+}
+
+.sc-bar:hover,
+.sc-bar:focus-visible {
+  opacity: 1;
+  outline: none;
+}
+
+.sc-bar.is-today {
+  opacity: 1;
+  background: linear-gradient(180deg, #93c5fd, var(--accent));
+}
+
+.sc-val {
+  font-size: 10px;
+  text-align: center;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.sc-tip {
+  position: absolute;
+  transform: translateX(-50%);
+  background: #0b1220;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.sc-tip[hidden] {
+  display: none;
+}
+
+.sc-axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* table view of the same numbers */
+.st-table {
+  margin-top: 12px;
+  max-height: 180px;
+  overflow: auto;
+  background: var(--bgd);
+  border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Courier New", monospace;
+  font-size: 12px;
+}
+
+.st-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 10px;
+  color: var(--muted);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.st-row:last-child {
+  border-bottom: none;
+}
+
+.st-count {
+  color: #e6eef8;
+  font-variant-numeric: tabular-nums;
+}
+
+/* log tail */
+.sl-token {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.sl-token .input {
+  background-color: var(--bgd);
+}
+
+.sl-token[hidden] {
+  display: none;
+}
+
+.sl-logs {
+  margin: 12px 0 0;
+  height: 380px;
+  overflow: auto;
+  background: var(--bgd);
+  border-radius: 8px;
+  padding: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@media (max-width:700px) {
+  .modal-body {
+    flex-direction: column;
+  }
+}

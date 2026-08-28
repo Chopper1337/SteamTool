@@ -1,128 +1,11 @@
 // Configuration
-const CONFIG = [
-  {
-    id: "steam",
-    title: "View profile",
-    desc: "Open original Steam profile",
-    url_vanity: "https://steamcommunity.com/{path}",
-    url_64: "https://steamcommunity.com/{path}",
-    needs64: false,
-    favicon: "https://steamcommunity.com/favicon.ico",
-    open: "new",
-  },
-  {
-    id: "csstat",
-    title: "CSSt.at",
-    desc: "Steam, FACEIT, Leetify and CSStats.gg stats.<br>AllStar Highlights.<br>Inventory viewer.",
-    url_vanity: "https://steamcommunity.rip/{path}",
-    url_64: "https://steamcommunity.rip/{path}",
-    needs64: false,
-    favicon: "",
-    open: "new",
-  },
-  {
-    id: "cstracker",
-    title: "cstracker.gg",
-    desc: "Steam, FACEIT, and player stats.<br>Chat logs.",
-    url_vanity: "https://steamcommunity.now/{path}",
-    url_64: "https://steamcommunity.now/{path}",
-    needs64: false,
-    favicon: "https://cstracker.gg/favicon.svg",
-    open: "new",
-  },
-  {
-    id: "CSStats.gg",
-    title: "CSStats.gg",
-    desc: "CS stats, HLTV rating and FACEIT.",
-    url_vanity: null,
-    url_64: "https://csstats.gg/player/{steamid64}",
-    needs64: true,
-    favicon: "https://static.csstats.gg/images/favicon.svg",
-    open: "new",
-  },
-  {
-    id: "skinflow",
-    title: "CS2Tracker",
-    desc: "Steam, FACEIT and Leetify stats.<br>Risk estimation and Inventory viewer.",
-    url_vanity: "https://steamcommunity.tips/{path}",
-    url_64: "https://steamcommunity.tips/{path}",
-    needs64: false,
-    favicon: "https://skinflow.gg/_ipx/_/images/skinflow-logo.webp",
-    open: "new",
-  },
-  {
-    id: "csrep",
-    title: "CSRep.gg",
-    desc: "Leetify stats, AllStar highlights and community reputation.<br>Inventory viewer.",
-    url_vanity: "https://wsteamcommunity.com/{path}",
-    url_64: "https://wsteamcommunity.com/{path}",
-    needs64: false,
-    favicon: "https://raw.githubusercontent.com/Chopper1337/SteamTool/refs/heads/main/resources/csrep.ico",
-    open: "new",
-  },
-  {
-    id: "steamsets",
-    title: "SteamSets.com",
-    desc: "Detailed level and game statistics.",
-    url_vanity: "https://ssteamcommunity.com/{path}",
-    url_64: "https://ssteamcommunity.com/{path}",
-    needs64: false,
-    favicon: "https://steamsets.com/favicon.ico",
-    open: "new",
-  },
-  {
-    id: "steamhist",
-    title: "SteamHistory.net",
-    desc: "History of profile name, profile picture etc.",
-    url_vanity: null,
-    url_64: "https://steamhistory.net/id/{steamid64}",
-    needs64: true,
-    favicon: "https://steamhistory.net/favicon-32x32.png",
-    open: "new",
-  },
-  {
-    id: "steamiduk",
-    title: "SteamID.uk",
-    desc: "History of profile, ban stats and more.",
-    url_vanity: null,
-    url_64: "https://steamid.uk/profile/{steamid64}",
-    needs64: true,
-    favicon: "https://cdn.steamid.uk/images/favicon/android-icon-192x192.png",
-    open: "new",
-  },
-  {
-    id: "steamdb",
-    title: "SteamDB.info",
-    desc: "Value of profile, game and badge stats and more.",
-    url_vanity: null,
-    url_64: "https://steamdb.info/calculator/{steamid64}",
-    needs64: true,
-    favicon: "https://steamdb.info/static/logos/vector_prefers_schema.svg",
-    open: "new",
-  },
-  {
-    id: "csxp",
-    title: "CSXP.gg",
-    desc: "Leaderboards for medals, coins, pins, commends and more.",
-    url_vanity: null,
-    url_64: "https://csxp.gg/players/{steamid64}",
-    needs64: true,
-    favicon: "https://csxp.gg/favicon.svg",
-    open: "new",
-  },
-  {
-    id: "cswatch",
-    title: "CSWat.ch",
-    desc: 'Leetify frontend with estimated "Skill Rating".',
-    url_vanity: "https://steamcommunity.ch/{path}",
-    url_64: "https://steamcommunity.ch/{path}",
-    needs64: false,
-    favicon: "https://cswat.ch/favicon.ico",
-    open: "new",
-  },
-];
+//
+// The site list lives in content/config.json, which is the single source of
+// truth. It is served straight off the filesystem next to this file, so
+// editing it changes the live list with no rebuild and no API restart.
+let CONFIG = [];
 
-const API_BASE = `{window.location.origin}/api`
+const CONFIG_URL = "/config.json";
 const MAX_LOG_LINES = 200;
 
 // Utility Functions
@@ -353,6 +236,32 @@ const API = {
     }
 
     return response.json();
+  },
+
+  /**
+   * Load the site list. config.json is the only source for CONFIG, so a
+   * failure here is fatal to the target list rather than silently falling
+   * back to a stale hard-coded copy that could drift out of sync again.
+   */
+  async loadConfig() {
+    try {
+      // no-cache revalidates rather than skipping the cache entirely, so an
+      // edit on the server shows up immediately but unchanged files 304.
+      const response = await fetch(CONFIG_URL, { cache: "no-cache" });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      const data = await response.json();
+      if (!Array.isArray(data)) throw new Error("config.json is not an array");
+
+      CONFIG = data;
+      Logger.info(`Loaded ${CONFIG.length} sites from config.json`);
+      return true;
+    } catch (error) {
+      CONFIG = [];
+      Logger.error(`Could not load config.json: ${error.message}`);
+      Logger.info("The site list is unavailable until config.json parses.");
+      return false;
+    }
   },
 
   async resolveVanity(vanityId) {
@@ -617,7 +526,12 @@ const UIBuilder = {
         btn.className += " disabled";
         btn.style.opacity = "0.45";
       });
-      desc.textContent += " — unavailable";
+
+      // Append a node rather than touching textContent: the description is
+      // HTML, and reading it back as text flattens its <br> line breaks.
+      const flag = document.createElement("span");
+      flag.textContent = " — unavailable";
+      desc.appendChild(flag);
     }
 
     return container;
@@ -638,11 +552,250 @@ const UIBuilder = {
   },
 };
 
+// Stats panel - visitor history and the API log tail
+const Stats = {
+  el: {},
+  timer: null,
+  isOpen: false,
+  REFRESH_MS: 10000,
+  DAYS_SHOWN: 30,
+  TOKEN_KEY: "steamtool.statsToken",
+
+  init() {
+    const id = (name) => document.getElementById(name);
+    this.el = {
+      link: id("statsLink"),
+      modal: id("statsModal"),
+      close: id("statsClose"),
+      summary: id("statsSummary"),
+      chart: id("statsChart"),
+      axis: id("statsAxis"),
+      table: id("statsTable"),
+      logs: id("statsLogs"),
+      tokenRow: id("statsTokenRow"),
+      tokenInput: id("statsTokenInput"),
+      tokenSave: id("statsTokenSave"),
+      tip: id("statsTip"),
+    };
+
+    if (!this.el.link || !this.el.modal) return;
+
+    this.el.link.addEventListener("click", (event) => {
+      event.preventDefault();
+      this.show();
+    });
+
+    this.el.close.addEventListener("click", () => this.hide());
+
+    this.el.modal.addEventListener("click", (event) => {
+      if (event.target === this.el.modal) this.hide();
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && this.isOpen) this.hide();
+    });
+
+    const submitToken = () => {
+      this.setToken(this.el.tokenInput.value.trim());
+      this.el.tokenInput.value = "";
+      this.refreshLogs();
+    };
+
+    this.el.tokenSave.addEventListener("click", submitToken);
+    this.el.tokenInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") submitToken();
+    });
+  },
+
+  getToken() {
+    try {
+      return localStorage.getItem(this.TOKEN_KEY) || "";
+    } catch (error) {
+      return "";
+    }
+  },
+
+  setToken(value) {
+    try {
+      if (value) localStorage.setItem(this.TOKEN_KEY, value);
+      else localStorage.removeItem(this.TOKEN_KEY);
+    } catch (error) {
+      // Private browsing - the token simply won't persist between visits.
+    }
+  },
+
+  show() {
+    this.isOpen = true;
+    this.el.modal.hidden = false;
+    this.el.close.focus();
+    this.refresh();
+    this.timer = setInterval(() => this.refresh(), this.REFRESH_MS);
+  },
+
+  hide() {
+    this.isOpen = false;
+    this.el.modal.hidden = true;
+    this.hideTip();
+    clearInterval(this.timer);
+    this.timer = null;
+    this.el.link.focus();
+  },
+
+  refresh() {
+    return Promise.allSettled([this.refreshVisitors(), this.refreshLogs()]);
+  },
+
+  // ---- visitors -----------------------------------------------------------
+
+  async refreshVisitors() {
+    try {
+      const data = await API.fetchJSON("/api/stats/visitors");
+      const days = Array.isArray(data.days) ? data.days : [];
+
+      this.el.summary.textContent =
+        `${data.today} today · ${data.total} all time · ${days.length} days recorded`;
+
+      this.renderChart(days);
+      this.renderTable(days);
+    } catch (error) {
+      this.el.summary.textContent = `Could not load visitor stats: ${error.message}`;
+      this.el.chart.innerHTML = "";
+      this.el.axis.textContent = "";
+    }
+  },
+
+  renderChart(days) {
+    const chart = this.el.chart;
+    chart.innerHTML = "";
+
+    if (!days.length) {
+      this.el.axis.textContent = "";
+      return;
+    }
+
+    const recent = days.slice(-this.DAYS_SHOWN);
+    const max = Math.max(...recent.map((d) => d.count), 1);
+    const today = new Date().toISOString().slice(0, 10);
+    const peak = recent.reduce((a, b) => (b.count > a.count ? b : a), recent[0]);
+
+    recent.forEach((day) => {
+      const col = document.createElement("div");
+      col.className = "sc-col";
+
+      // Direct-label only the peak and today. A number over every bar is noise.
+      if (day.date === peak.date || day.date === today) {
+        const value = document.createElement("span");
+        value.className = "sc-val";
+        value.textContent = day.count;
+        col.appendChild(value);
+      }
+
+      const bar = document.createElement("div");
+      bar.className = "sc-bar";
+      if (day.date === today) bar.classList.add("is-today");
+      bar.style.height = `${Math.max((day.count / max) * 100, 2)}%`;
+      bar.tabIndex = 0;
+      bar.setAttribute("role", "img");
+      bar.setAttribute("aria-label", `${day.date}: ${day.count} visits`);
+
+      const showTip = () => this.showTip(bar, `${day.date} · ${day.count}`);
+      bar.addEventListener("mouseenter", showTip);
+      bar.addEventListener("focus", showTip);
+      bar.addEventListener("mouseleave", () => this.hideTip());
+      bar.addEventListener("blur", () => this.hideTip());
+
+      col.appendChild(bar);
+      chart.appendChild(col);
+    });
+
+    this.el.axis.textContent = `${recent[0].date}  →  ${recent[recent.length - 1].date}`;
+  },
+
+  renderTable(days) {
+    const table = this.el.table;
+    table.innerHTML = "";
+
+    days
+      .slice()
+      .reverse()
+      .forEach((day) => {
+        const row = document.createElement("div");
+        row.className = "st-row";
+
+        const date = document.createElement("span");
+        date.textContent = day.date;
+
+        const count = document.createElement("span");
+        count.className = "st-count";
+        count.textContent = day.count;
+
+        row.append(date, count);
+        table.appendChild(row);
+      });
+  },
+
+  showTip(anchor, text) {
+    const tip = this.el.tip;
+    tip.textContent = text;
+    tip.hidden = false;
+
+    const bar = anchor.getBoundingClientRect();
+    const host = this.el.chart.getBoundingClientRect();
+    tip.style.left = `${bar.left - host.left + bar.width / 2}px`;
+    tip.style.bottom = `${host.bottom - bar.top + 6}px`;
+  },
+
+  hideTip() {
+    if (this.el.tip) this.el.tip.hidden = true;
+  },
+
+  // ---- logs ---------------------------------------------------------------
+
+  async refreshLogs() {
+    const token = this.getToken();
+    const logs = this.el.logs;
+
+    if (!token) {
+      this.el.tokenRow.hidden = false;
+      logs.textContent = "Enter the stats token to view the API log.";
+      return;
+    }
+
+    try {
+      const data = await API.fetchJSON("/api/stats/logs?limit=300", {
+        headers: { "X-Stats-Token": token },
+      });
+
+      this.el.tokenRow.hidden = true;
+
+      const lines = Array.isArray(data.lines) ? data.lines : [];
+      logs.textContent = lines.length ? lines.join("\n") : "The log is empty.";
+      logs.scrollTop = logs.scrollHeight;
+    } catch (error) {
+      this.el.tokenRow.hidden = false;
+
+      if (error.message === "unauthorized") {
+        logs.textContent = "That token was rejected. Check STATS_TOKEN on the API.";
+      } else if (error.message === "stats_token_not_configured") {
+        logs.textContent =
+          "The API has no STATS_TOKEN set, so log access is disabled.\n" +
+          "Set STATS_TOKEN in the API environment and restart it.";
+      } else {
+        logs.textContent = `Could not load logs: ${error.message}`;
+      }
+    }
+  },
+};
+
 // Main Application
 const App = {
   async initialise() {
     DOM.init();
     InputHandler.init();
+    Stats.init();
+
+    // The target list cannot render until config.json has loaded.
+    await API.loadConfig();
 
     const parsed = PathParser.parse();
 

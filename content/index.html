@@ -40,11 +40,45 @@
       <div class="footer">
         <div class="muted">Tip: Add two "y"s to Steam URLs (steamcommunity.com → steamcommunityyy.com) to open this tool
         </div>
+        <div class="muted"><a href="#" id="statsLink" class="link">Stats</a></div>
       </div>
       <br>
       <span class="credz">Made with 🍊 by <a href="https://steamcommunityyy.com/id/valor-cant">Victor</a></span>
     </div>
   </div>
+
+  <div class="modal" id="statsModal" role="dialog" aria-modal="true" aria-labelledby="statsTitle" hidden>
+    <div class="modal-card">
+      <div class="modal-head">
+        <span class="heading" id="statsTitle">Stats</span>
+        <button class="btn ghost small" id="statsClose" type="button">Close</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="box">
+          <div class="muted label">Visitors</div>
+          <div class="muted" id="statsSummary">Loading…</div>
+          <div class="sc-wrap">
+            <div class="sc-chart" id="statsChart"></div>
+            <div class="sc-tip" id="statsTip" hidden></div>
+          </div>
+          <div class="sc-axis muted" id="statsAxis"></div>
+          <div class="st-table" id="statsTable"></div>
+        </div>
+
+        <div class="box">
+          <div class="muted label">API log</div>
+          <div class="sl-token" id="statsTokenRow" hidden>
+            <input class="input" id="statsTokenInput" type="password" placeholder="Stats token"
+              autocomplete="off">
+            <button class="btn small" id="statsTokenSave" type="button">Unlock</button>
+          </div>
+          <pre class="sl-logs" id="statsLogs">Loading…</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="/script.js"></script>
 </body>
 
