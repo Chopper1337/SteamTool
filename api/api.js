@@ -33,6 +33,8 @@ const MAX_LOG_LINES = Number(process.env.MAX_LOG_LINES || 5000);
 // the ones behind it; the ceiling is what stops a lookup hanging the browser.
 const RESOLVER_TIMEOUT_MS = Number(process.env.RESOLVER_TIMEOUT_MS || 4000);
 const RESOLVE_BUDGET_MS = Number(process.env.RESOLVE_BUDGET_MS || 15000);
+const USER_AGENT = process.env.USER_AGENT ||
+  "SteamTool/1.0 (+https://github.com/Chopper1337/SteamTool)";
 const TRIM_EVERY = 500;
 const STATS_TOKEN = process.env.STATS_TOKEN || "";
 
@@ -362,7 +364,9 @@ app.get("/api/resolve-vanity", async (req, res) => {
       const url = r.urlTemplate.replace("{id}", encodeURIComponent(id));
       resp = await fetch(url, {
         method: "GET",
-        headers: { Accept: "application/json" },
+        // Identify ourselves honestly. Without a User-Agent some resolvers
+        // (pricempire) reject the request outright with a 403.
+        headers: { Accept: "application/json", "User-Agent": USER_AGENT },
         signal: control.signal,
       });
     } finally {

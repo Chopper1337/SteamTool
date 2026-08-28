@@ -1,8 +1,8 @@
 [
   {
-    "name": "steamid.co",
-    "urlTemplate": "https://steamid.co/php/api.php?action=steamID&id={id}",
-    "responsePath": "steamID64"
+    "name": "cs2ws.com",
+    "urlTemplate": "https://cs2ws.com/api/search?q={id}",
+    "responsePath": "steam_id"
   },
   {
     "name": "cswat.ch",
@@ -20,8 +20,8 @@
     "responsePath": "steam64"
   },
   {
-    "name": "faceitlookup.com",
-    "urlTemplate": "https://faceitlookup.com/.netlify/functions/steam?vanityurl={id}",
-    "responsePath": "response.steamid"
+    "name": "faceithunter.com",
+    "urlTemplate": "https://faceithunter.com/api/faceit/player/{id}/cs2",
+    "responsePath": "steam_id_64"
   }
 ]
