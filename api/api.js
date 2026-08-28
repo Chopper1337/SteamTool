@@ -27,6 +27,12 @@ const resolversPath = path.join(__dirname, "resolvers.json");
 const knownPath = path.join(__dirname, "known.json");
 
 const MAX_LOG_LINES = Number(process.env.MAX_LOG_LINES || 5000);
+
+// Per-resolver slice, and an overall ceiling for one lookup. The slice is what
+// stops a single slow resolver from consuming the whole budget and starving
+// the ones behind it; the ceiling is what stops a lookup hanging the browser.
+const RESOLVER_TIMEOUT_MS = Number(process.env.RESOLVER_TIMEOUT_MS || 4000);
+const RESOLVE_BUDGET_MS = Number(process.env.RESOLVE_BUDGET_MS || 15000);
 const TRIM_EVERY = 500;
 const STATS_TOKEN = process.env.STATS_TOKEN || "";
 
@@ -328,23 +334,40 @@ app.get("/api/resolve-vanity", async (req, res) => {
   const start = Math.floor(Math.random() * RESOLVERS.length);
   const ordered = RESOLVERS.map((_, i) => RESOLVERS[(start + i) % RESOLVERS.length]);
 
-  // One budget for the whole request. Previously each resolver got its own 5s,
-  // so five dead resolvers meant a 25s wait before the browser saw anything.
+  // Two limits, not one. Each resolver gets its own slice so that a single slow
+  // one cannot starve the rest, and an overall budget still bounds how long the
+  // browser can be left waiting.
   //
-  // Deliberately still sequential rather than a Promise.any race: racing would
-  // answer marginally faster but would send five outbound requests on every
-  // single lookup instead of usually one, which is exactly the amplification
-  // that gets our IP banned by the resolvers we depend on.
-  const deadline = new AbortController();
-  const deadlineTimer = setTimeout(() => deadline.abort(), 6000);
+  // A single shared deadline was tried and reverted: one slow resolver consumed
+  // the whole budget, so only one or two of the five were ever attempted and
+  // lookups failed that would previously have succeeded.
+  //
+  // Deliberately sequential rather than a Promise.any race: racing would answer
+  // marginally faster but would send five outbound requests on every single
+  // lookup instead of usually one, which is the amplification that gets our IP
+  // banned by the resolvers we depend on.
+  const startedAt = Date.now();
+  const remainingMs = () => RESOLVE_BUDGET_MS - (Date.now() - startedAt);
 
   const attempt = async (r) => {
-    const url = r.urlTemplate.replace("{id}", encodeURIComponent(id));
-    const resp = await fetch(url, {
-      method: "GET",
-      headers: { Accept: "application/json" },
-      signal: deadline.signal,
-    });
+    // Never let one resolver run longer than its slice, nor past the budget.
+    const slice = Math.min(RESOLVER_TIMEOUT_MS, remainingMs());
+    if (slice <= 0) throw new Error("budget exhausted");
+
+    const control = new AbortController();
+    const sliceTimer = setTimeout(() => control.abort(), slice);
+
+    let resp;
+    try {
+      const url = r.urlTemplate.replace("{id}", encodeURIComponent(id));
+      resp = await fetch(url, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+        signal: control.signal,
+      });
+    } finally {
+      clearTimeout(sliceTimer);
+    }
 
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 
@@ -377,7 +400,10 @@ app.get("/api/resolve-vanity", async (req, res) => {
 
   try {
     for (const r of ordered) {
-      if (deadline.signal.aborted) break;
+      if (remainingMs() <= 0) {
+        errors.push(`(budget exhausted after ${errors.length}/${ordered.length})`);
+        break;
+      }
       try {
         const result = await attempt(r);
         logSteamTool("Resolve vanity", id, ` to ${result.steamid64}`);
@@ -388,14 +414,17 @@ app.get("/api/resolve-vanity", async (req, res) => {
     }
 
     // Detail goes to the log, not to the client - the response used to name
-    // every third-party resolver and how it was failing.
-    logEvent(`Resolve vanity failed for ${id} (${errors.join("; ")})`);
+    // every third-party resolver and how it was failing. The tried/total count
+    // is what tells you whether the budget is starving resolvers.
+    logEvent(
+      `Resolve vanity failed for ${id} ` +
+      `[tried ${errors.length}/${ordered.length} in ${Date.now() - startedAt}ms] ` +
+      `(${errors.join("; ")})`
+    );
     return res.status(502).json({ error: "no resolver succeeded" });
   } catch (err) {
     console.error("resolve-vanity error:", err);
     return res.status(500).json({ error: "internal_server_error" });
-  } finally {
-    clearTimeout(deadlineTimer);
   }
 });
 
