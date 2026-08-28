@@ -378,33 +378,6 @@ const API = {
     }
   },
 
-  async fetchLeetifyStats(steamid64) {
-    if (!steamid64) return null;
-
-    try {
-      Logger.info("Attempting to fetch Leetify stats...");
-      
-      const data = await this.fetchJSON(
-        `/api/leetify?id=${encodeURIComponent(steamid64)}`
-      );
-
-      if (!data?.recentGameRatings) {
-        throw new Error("Invalid response format");
-      }
-
-      Logger.success("Fetched Leetify stats:");
-      Logger.info(`Aim: ${data.recentGameRatings.aim.toFixed(2)}`);
-      Logger.info(`Positioning: ${data.recentGameRatings.positioning.toFixed(2)}`);
-      Logger.info(`Util: ${data.recentGameRatings.utility.toFixed(2)}`);
-
-      return data;
-    } catch (error) {
-      Logger.error("Failed to fetch Leetify stats");
-      Logger.info(error.message);
-      return null;
-    }
-  },
-
   async fetchKnownPlayerInfo(steamid64) {
     if (!steamid64) return null;
 
@@ -698,7 +671,6 @@ const App = {
 
     // Fetch additional data in parallel
     await Promise.allSettled([
-      API.fetchLeetifyStats(steamid64),
       API.fetchKnownPlayerInfo(steamid64),
       API.updateVisitorCount(),
     ]);

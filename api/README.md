@@ -1,71 +1,11 @@
 # API Documentation
 
 ## Overview
-This API provides two endpoints for resolving Steam IDs and fetching profile data. It uses Express.js, Node.js, and open-source libraries. All requests are CORS-enabled and use JSON for data exchange.
+This API provides endpoints for resolving Steam IDs, looking up known accounts, and tracking visitor counts. It uses Express.js, Node.js, and open-source libraries. All requests are CORS-enabled and use JSON for data exchange.
 
 ## Endpoints
 
-### 1. `/api/leetify` (GET)
-**Purpose**: Fetch Steam profile data using a Steam ID64 from Leetify's API.
-
-**Request Parameters**:
-- `id` (query): A string containing only digits (Steam ID64). Required.
-
-**Response Examples**:
-- Success:
-  ```json
-  {
-  "isSensitiveDataVisible": false,
-  "recentGameRatings": {
-    "aim": 83.39767558123408,
-    "leetifyRatingRounds": 560,
-    "positioning": 39.743194584961124,
-    "utility": 64.00541041079873,
-    "gamesPlayed": 30,
-    "clutch": 0.2005,
-    "ctLeetify": 0.0124,
-    "leetify": 0.0223,
-    "opening": -0.0064,
-    "tLeetify": 0.0308
-  },
-  "teammates": false,
-  "highlights": [],
-  ...
-  "meta": {
-   "bannerBorderId": "none",
-    "name": "a9l9gacppb5h7avyt9rs4p",
-    "steam64Id": "76561199702311767",
-    "steamAvatarUrl": "https://avatars.fastly.steamstatic.com/0ee067b3b0a780a32b8317d83f741dd79deee70f_full.jpg",
-    "isCollector": false,
-    "isLeetifyStaff": false,
-    "isProPlan": false,
-    "leetifyUserId": "d7e992b1-6ac7-4d6b-af0d-481fa4dc3e48",
-    "subscriptionActiveSince": "2025-02-03T19:03:29.000Z",
-    "vanityUrl": null,
-    "platformBans": []
-    }
-  }
-  ```
-- Error: Invalid ID
-  ```json
-  { "error": "invalid id: must contain only digits" }
-  ```
-- Error: Remote server failure
-  ```json
-  {"error":"remote_error","details":"Not Found"}
-  ```
-- Error: Internal server error
-  ```json
-  { "error": "internal_server_error" }
-  ```
-
-**Notes**:
-- Leetify API requires setting the URL (`LEETIFY_API_URL` environment variable) and an optional `Authorization` header with a Bearer token (`LEETIFY_API_KEY` environment variable).
-- All requests have a 5-second timeout to prevent hanging.
-
----
-
-### 2. `/api/resolve-vanity` (GET)
+### 1. `/api/resolve-vanity` (GET)
 **Purpose**: Resolve a Steam vanity URL to its ID64 by querying multiple resolvers.
 
 **Request Parameters**:
@@ -128,7 +68,7 @@ This API provides two endpoints for resolving Steam IDs and fetching profile dat
 
 ---
 
-### 4. `/api/visitor-count` (GET)
+### 2. `/api/visitor-count` (GET)
 
 **Purpose**: Fetch the visitor count for the current day.
 
@@ -143,7 +83,7 @@ This API provides two endpoints for resolving Steam IDs and fetching profile dat
 
 ---
 
-### 4. `/api/visitor-count` (POST)
+### 3. `/api/visitor-count` (POST)
 
 **Purpose**: Increment the visitor count for the current day.
 
@@ -158,9 +98,12 @@ This API provides two endpoints for resolving Steam IDs and fetching profile dat
 
 ---
 
-### 5. `/api/known` (POST)
+### 4. `/api/known` (GET)
 
 **Purpose**: Fetch information about an account
+
+**Request Parameters**:
+- `id` (query): A Steam ID64 (17 digits). Required.
 
 **Response Examples**:
 - Success:
@@ -185,8 +128,6 @@ This API provides two endpoints for resolving Steam IDs and fetching profile dat
 - **Environment Variables**:
   - `PORT`: Server port (default: `process.env.PORT`).
   - `HOST`: Server host (default: `process.env.HOST`).
-  - `LEETIFY_API_URL`: Leetify API URL (provided by them)
-  - `LEETIFY_API_KEY`: Optional API key for Leetify (commented in code).
 - **Dependencies**:
   - Open-source libraries: Express, body-parser, Node.js standard libraries.
 
@@ -194,7 +135,7 @@ This API provides two endpoints for resolving Steam IDs and fetching profile dat
 
 ## Error Handling
 - **400 Bad Request**: Invalid input (e.g., non-numeric ID).
-- **404 Not Found**: Missing data in Leetify's response.
+- **404 Not Found**: No matching account in `known.json`.
 - **500 Internal Server Error**: Unexpected exceptions.
 - **502 Bad Gateway**: All resolvers failed.
 

@@ -8,7 +8,6 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT;
 const HOST = process.env.HOST;
-const LEETIFY_API_URL = process.env.LEETIFY_API_URL;
 
 const visitorCountPath = path.join(__dirname, "visitor_count.txt");
 
@@ -145,47 +144,6 @@ app.post("/api/visitor-count", (req, res) => {
     return res.json({ date: today, count });
   } catch (err) {
     console.error("visitor count POST error:", err);
-    return res.status(500).json({ error: "internal_server_error" });
-  }
-});
-
-
-// GET /api/leetify?id={steamid64}
-app.get("/api/leetify", async (req, res) => {
-  try {
-    const steamid64 = String(req.query.id ?? "");
-
-    // Digits only
-    if (!/^\d+$/.test(steamid64)) {
-      return res.status(400).json({ error: "invalid id: must contain only digits" });
-    }
-
-    // Only allow ASCII letters and digits
-    if(!/^.{17}$/.test(steamid64)) { 
-      return res.status(400).json({ error: "invalid id: must be 17 digits" });
-    }
-
-    logSteamTool("Leetify", steamid64, "");
-
-    const url = `${LEETIFY_API_URL}${encodeURIComponent(steamid64)}`;
-    const headers = { Accept: "application/json" };
-    // Add Leetify API key when we get one...
-    // headers["Authorization"] = `Bearer ${process.env.LEETIFY_API_KEY}`;
-
-    const response = await fetch(url);
-    if (!response.ok) {
-      const text = await response.text();
-      return res.status(response.status).json({ error: "remote_error", details: text });
-    }
-
-    const data = await response.json();
-    if (!data || typeof data.recentGameRatings === "undefined") {
-      return res.status(404).json({ error: "recentGameRatings not found" });
-    }
-
-    return res.json(data);
-  } catch (err) {
-    console.error("leetify proxy error:", err);
     return res.status(500).json({ error: "internal_server_error" });
   }
 });
