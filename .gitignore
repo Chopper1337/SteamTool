@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Runtime data
+api/visitor_count.txt
+
+# Logs
+*.log
+npm-debug.log*
