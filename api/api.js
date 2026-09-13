@@ -526,7 +526,7 @@ const loaded = loadData();
 const server = app.listen(PORT, HOST, () => {
   logEvent(`API started on http://${HOST}:${PORT} (${loaded.resolvers} resolvers, ${loaded.known} known players)`);
   if (!STATS_TOKEN) {
-    console.warn("STATS_TOKEN is not set - /api/stats/logs is disabled.");
+    console.warn("STATS_TOKEN is not set - /api/stats/logs disabled.");
   }
 });
 
