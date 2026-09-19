@@ -9,6 +9,21 @@ const app = express();
 const PORT = process.env.PORT;
 const HOST = process.env.HOST;
 
+// Both are required. Unset, app.listen(undefined, undefined) binds a random
+// port on every interface - reachable past the proxy, which is exactly what
+// TRUST_PROXY_HOPS assumes cannot happen - and still logs a start line that
+// reads as normal. A non-numeric PORT is no better: node takes it for a pipe
+// path and creates a unix socket of that name, so nothing serves HTTP at all.
+if (!HOST || !PORT) {
+  console.error("HOST and PORT must both be set (EnvironmentFile, or api/.env - see .env.example).");
+  process.exit(1);
+}
+
+if (!/^\d+$/.test(PORT) || Number(PORT) < 1 || Number(PORT) > 65535) {
+  console.error(`PORT must be a number from 1 to 65535, got "${PORT}".`);
+  process.exit(1);
+}
+
 // Number of reverse proxies in front of us. Without this, req.ip is the
 // proxy's address for every visitor, so any future rate limiting would treat
 // the whole internet as one client. Never set this to `true`, and never above
