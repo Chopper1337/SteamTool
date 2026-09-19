@@ -68,15 +68,45 @@ systemctl reload steamtool-api
 systemd-analyze security steamtool-api
 ```
 
-Adjust `WorkingDirectory` and `ExecStart` to match your checkout and your
-`node` binary (`readlink -f "$(which node)"`). Units do not inherit your login
-`PATH`, so a bare `node` fails under nvm/fnm/asdf.
+The unit ships with `WorkingDirectory=/opt/steamtool/api`, which is correct if
+you use the layout below. `ExecStart` still has to match your `node` binary
+(`readlink -f "$(which node)"`) — units do not inherit your login `PATH`, so a
+bare `node` fails under nvm/fnm/asdf.
 
-### Where the checkout can live
+### Where the checkout should live
 
-`DynamicUser=yes` runs the service as a generated UID, so it can only read a
-checkout whose parent directories it can traverse. Whether a checkout under
-`/home` qualifies depends on the distribution and on when the account was
+In `/opt/steamtool`:
+
+```bash
+mv ~/SteamTool /opt/steamtool          # then re-point any symlink into content/
+chown -R "$USER" /opt/steamtool        # so you can still git pull without root
+```
+
+That is the path the shipped unit already expects, so `WorkingDirectory` needs
+no edit, and it keeps `DynamicUser=yes`, `ProtectHome=true` and the rest of the
+hardening exactly as written. `/opt` is world-traversable everywhere, so the
+generated UID can read the checkout without being granted any group membership.
+
+The service only ever *reads* the checkout; all writes go to `StateDirectory`.
+
+Moving an existing checkout means updating four things, not one: the unit's
+`WorkingDirectory`, any symlink into `content/`, any container that bind-mounts
+one of those (Docker resolves the source at container start, so restart it
+afterwards or it keeps serving the old path), and any cron entry that runs a
+script from the checkout.
+
+#### Keeping it under `/home` instead
+
+Workable, but it costs either isolation or a group grant, and it is not what
+this unit is written for.
+
+`ProtectHome=true` masks `/home` from the service entirely, so the unit fails
+before it ever execs — `status=200/CHDIR`, whatever the permissions say. Relax
+it to `read-only` first.
+
+Past that, `DynamicUser=yes` runs the service as a generated UID, so it can only
+read a checkout whose parent directories it can traverse. Whether a home
+directory qualifies depends on the distribution and on when the account was
 created — don't assume, check:
 
 ```bash
@@ -85,9 +115,9 @@ stat -c '%A %n' ~
 
 | Mode | Meaning | What to do |
 |---|---|---|
-| `drwxr-xr-x` (0755) | world-traversable | nothing — a checkout in `~` works as-is |
-| `drwxr-x---` (0750) | owner + group | add `SupplementaryGroups=<group>` to the unit |
-| `drwx------` (0700) | owner only | move the checkout, or drop `DynamicUser=` |
+| `drwxr-xr-x` (0755) | world-traversable | nothing beyond `ProtectHome=read-only` |
+| `drwxr-x---` (0750) | owner + group | also add `SupplementaryGroups=<group>` |
+| `drwx------` (0700) | owner only | move to `/opt/steamtool`, or drop `DynamicUser=` |
 
 These are plain POSIX permissions, applied before `ProtectHome=` is consulted;
 no unit setting overrides them.
@@ -98,20 +128,13 @@ switched the `adduser` default to `0750` in Ubuntu 21.04 — and on a system
 `0755`, so only accounts created afterwards are private. Arch and several
 others default to `0700` via `HOME_MODE` in `/etc/login.defs`.
 
-If the checkout isn't reachable, move it somewhere world-traversable and keep
-the isolation:
+Or give up the dynamic user entirely: replace `DynamicUser=yes` with
+`User=`/`Group=` for that account, alongside the `ProtectHome=read-only` above.
+Simpler, but the service then runs with that account's full access.
 
-```bash
-mv ~/SteamTool /opt/steamtool          # then re-point any symlink into content/
-chown -R "$USER" /opt/steamtool        # so you can still git pull without root
-```
-
-…or keep it where it is and give up the dynamic user: replace
-`DynamicUser=yes` with `User=`/`Group=` for that account, and relax
-`ProtectHome=true` to `read-only` so the service can read its own code. Less
-isolation — the service gets that account's access — but no move.
-
-The service only ever *reads* the checkout; all writes go to `StateDirectory`.
+Make these edits in a drop-in rather than in the copied unit —
+`/etc/systemd/system/steamtool-api.service.d/override.conf` layers on top and
+survives the next `cp` from this directory, which would otherwise revert them.
 
 Host-specific settings go in an `EnvironmentFile` — by default
 `/etc/steamtool/api.env`, created with `0600` permissions — so that no address
