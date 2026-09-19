@@ -70,6 +70,16 @@
     "open": "new"
   },
   {
+    "id": "gaugedb",
+    "title": "GaugeDB",
+    "desc": "Account value statistics.",
+    "url_vanity": null,
+    "url_64": "https://gaugedb.com/calculator/{steamid64}",
+    "needs64": false,
+    "favicon": "https://gaugedb.com/favicon.png",
+    "open": "new"
+  },
+  {
     "id": "steamsets",
     "title": "SteamSets.com",
     "desc": "Detailed level and game statistics.",
