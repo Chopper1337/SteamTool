@@ -16,8 +16,11 @@ Wants=network-online.target
 # NB: these belong in [Unit], not [Service]. If a data file is unparseable the
 # API still starts (it logs and continues), but should anything else make the
 # process exit immediately, this stops it flapping and parks it in `failed`.
-StartLimitIntervalSec=60
-StartLimitBurst=5
+#
+# Wide enough to outlast a slow interface coming up. With the backoff below,
+# ten attempts span roughly five minutes.
+StartLimitIntervalSec=600
+StartLimitBurst=10
 
 [Service]
 Type=exec
@@ -70,6 +73,15 @@ DynamicUser=yes
 
 Restart=on-failure
 RestartSec=2s
+
+# Back off rather than retrying flat out. A fixed 2s against the old burst of
+# 5 spent the entire start budget about ten seconds after the first attempt -
+# shorter than DHCP on a cold boot - and nothing retried once the address did
+# arrive; the unit just sat in `failed` until someone ran reset-failed.
+# Roughly doubles from RestartSec to the ceiling. systemd 254+; older versions
+# log an unknown-key warning, ignore these two and keep the flat 2s.
+RestartSteps=5
+RestartMaxDelaySec=60s
 
 # The API drains on SIGTERM via server.close(); without that handler this
 # would just be a slower SIGKILL.
