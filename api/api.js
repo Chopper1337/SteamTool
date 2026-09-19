@@ -523,11 +523,25 @@ ensureState();
 logRing = loadLogRing();
 const loaded = loadData();
 
-const server = app.listen(PORT, HOST, () => {
+// Deliberately not app.listen's callback. Express registers that callback as
+// the 'error' handler as well, so a failed bind called it with an error it
+// ignored, logged "API started", consumed the error and exited 0 - which
+// Restart=on-failure reads as a clean exit and does not restart.
+const server = app.listen(PORT, HOST);
+
+server.on("listening", () => {
   logEvent(`API started on http://${HOST}:${PORT} (${loaded.resolvers} resolvers, ${loaded.known} known players)`);
   if (!STATS_TOKEN) {
     console.warn("STATS_TOKEN is not set - /api/stats/logs disabled.");
   }
+});
+
+// EADDRINUSE, EADDRNOTAVAIL, EACCES. Exit non-zero so systemd sees a failure
+// and the unit lands in `failed` rather than `inactive (dead)` reported as
+// success with nothing listening.
+server.on("error", (err) => {
+  console.error(`${stamp()} Failed to bind ${HOST}:${PORT}: ${err.code || err.message}`);
+  process.exit(1);
 });
 
 // systemctl reload -> re-read the hand-edited data files without dropping
